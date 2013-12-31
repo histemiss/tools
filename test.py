@@ -55,7 +55,7 @@ class Token(object) :
         TOKEN_COL: '[\d]+L[\d]+',
         TOKEN_FI:'FI',
         TOKEN_SPECIAL: '\*((INTNR)|(INTTIME)|(SCRCNT)|(INTERNR)|(STIME))',
-        TOKEN_QUESTION: '\*[a-zA-Z][a-zA-Z0-9_]*', 
+        TOKEN_QUESTION: '\*[a-zA-Z][a-zA-Z0-9_-]*', 
         TOKEN_NUMBER: '\d+',
     }
 
@@ -138,47 +138,148 @@ class Sentense_cond(Sentense):
         super(Sentense_cond, self).__init__(ts, s, l, Sentense.SENTENSE_CONDITION)
         self.output = None
 
+    def cond_ques_expr(c):
+        #使用题号的判断表达式: 'V2130,1'  前面可能带有#, 后面可能带有多个','
+        #去掉头尾的空格
+        r = re.compile(r'(\A\s*)|(\s*\Z)')
+        c = r.sub('', c)
+        
+        #结果是output
+        output = ''
+
+        #开头是否有'#'
+        r_not = False
+        if c[0] == '#':
+            r_not = True
+            c = c[1:]
+
+        #使用','分割
+        vs = c.split(',')
+        q = vs[0]
+        vs = vs[1:]
+        
+        #查找q对应的题目
+        q = Question.ques_dict[q]
+        if not q:
+            print("找不到判断条件的题号", c)
+            raise None
+        col_start = q.question.col.col_start
+        col_width = q.question.col.col_width
+        if col_width == 1:
+            n_output = 'n' if r_not else ''
+            output = 'c' + str(col_start) + n_output + '\'' + '/'.join(vs) + '\''
+        else:
+            if len(vs) == 1:
+                #只有一个值,使用'eq,ne'
+                eq_outp = 'ne' if r_not else 'eq'
+                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').' + eq_outp + '.' + vs[0]
+            else:
+                #多个值,使用'in'
+                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').in(' + ','.join(vs) + ')'
+                if r_not:
+                    output = 'not.' + output
+
+        return output
+
+    def cond_ques(c):
+        r = re.compile(r'\A(\s*#?[a-zA-Z][a-zA-Z1-9-_]*(,[1-9][0-9]*)+\s*)((\\|&)\1)*\Z')
+        if not r.match(c) :
+            return None
+
+        #使用'|' 和 '&'分割, 然后使用'or','and'连起来
+        o_conds = c.split('|')
+        o_out = []
+        for o in o_conds:
+            a_conds = o.split('&')
+            a_out = []
+            for a in a_conds:
+                a_out.append(cond_ques_expr(a))
+            o_out.append('.and.'.join(a_out))
+        return '.or.'.join(o_out)
+
+    def cond_col_expr(c):
+        #去掉头尾的空格
+        r = re.compile('(\A\s*)|(\s*\Z)')
+        c = r.sub('', c)
+
+        #匹配题目结构位置
+        r = re.compile('[1-9][0-9]*L[1-9][0-9]+')
+        r1 = r.search(c)
+        r1 = c[r1.start():r1.end()]
+        p = r1.split('L')
+        col_start = int(p[0])
+        col_wdith = int(p[1])
+
+        #匹配表达式的值
+        r = re.compile('[0-9]+\s*\Z')
+        r1 = r.search(c)
+        val = c[r1.start():r1.end()]
+
+        #查找判断表达式
+        s = ''
+        if c.find('<>') != -1:
+            s = 'ne'
+        elif c.find('>=') != -1:
+            s = 'ge'
+        elif c.find('<=') != -1:
+            s = 'le'
+        elif c.find('>') != -1:
+            s = 'gt'
+        elif c.find('<') != -1:
+            s = 'lt'
+        elif c.find('=') != -1:
+            s = 'eq'
+        else :
+            print("没有找到比较运算符", c)
+            raise None
+            
+        output = ''
+        if col_width == 1 :
+            if s == 'eq' or s == 'ne':
+                #只简化这种情况
+                s_op = '' if s == 'eq' else 'n'
+                output = 'c' + str(col_start) + s_op + '\'' + val + '\''
+            else :
+                output = 'c(' + str(col_start) + ').' + s + '.' + val
+        else :
+            output = 'c(' + str(col_start) + ',' + str(col_start + col_width-1) + ').' + s + '.' + val
+
+        return output
+        
+    def cond_col(c):
+        #使用结果位置作为判断表达式, 而且使用'\'和'&'连起来
+        r = re.compile(r'\A(\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+\s)((\\|&)\1)*')
+        if not r.match(c):
+            return None
+
+        #使用'\'和'&'分割, 使用'or', 'and'连起来
+        o_conds = c.split('\\')
+        o_out = []
+        for o in o_conds:
+            a_conds = o.split('&')
+            a_out = []
+            for a in a_conds:
+                a_out.append(cond_col(a))
+            o_out.append('.and.'.join(a_out))
+        return '.or.'.join(o_out)
+            
     def parse_condition(self):
-        #先解析括号里面的内容
         #FI ( XXXX ) :
         #先分离':'前面的条件
         cond_str = self.string.split(':')[0]
-        r = re.compile('(\AFI\s+\(\s+)|(\s+\)\s+)')
-        cond_str = r.sub('', cond_str)
-        #只处理 QA2,3类型
-        ques_cond_re = '[a-zA-Z][a-zA-Z0-9_]*,[1-9][0-9]*'
-        r = re.compile('\A' + ques_cond_re + '\Z')
-        if not re.match(r,cond_str):
-            #匹配失败,去掉条件
-            return
-        a = cond_str.split(',')
-        ques_no = a[0]
-        sub_col = int(a[1])
-        q = Question.ques_dict[ques_no]
-        col_start = q.question.col.col_start 
-        col_width = q.question.col.col_width
-        col_val = 0
-        if q.question.type_ques == Sentense_ques.QUESTION_SINGLE:
-            col_val = sub_col
-            if col_width == 1:
-                #;c=c680'1'
-                self.output = ';c=c'
-                self.output += str(col_start) +'\'' + str(col_val) + '\''
-            else:
-                #;c=c(75,76).eq.20
-                self.output = ';c=c(' 
-                self.output += str(col_start) + ',' + str(col_start + col_width -1)
-                self.output += ').eq.' + str(col_val)
-        elif q.question.type_ques == Sentense_ques.QUESTION_MULTI:
-            #验证sub_col没有超过选项个数
-            assert(col_width >= sub_col)
-            col_start += (sub_col-1)
-            # ;c=c680'1'
-            self.output = ';c=c' + str(col_start) + '\'1\''
-        else:
+
+        #先解析括号里面的内容
+
+        o = cond_ques(cond_str)
+        if o == None:
+            o = cond_col(cond_str)
+
+        if o == None:
             print('条件解析错误:', line)
             raise None
-        #输出
+        
+        self.output = ';c=' + o
+
 
 #这一行是题目,解析
 class Sentense_ques(Sentense):
@@ -254,7 +355,7 @@ class Sentense_opti(Sentense):
         self.option_key = int(r.sub('', self.tokens[0].string))
         self.option_name = r.sub('', self.tokens[1].string)
 
-def sentense_parse(s, l = -1):
+def parse_sentense(s, l = -1):
     #获取':'前面的,开始解析, 没有':', 照样解析
     s1 = s.split(':')[0]
 
@@ -515,7 +616,7 @@ class Question(object):
             o += 'base1' + CRLF 
             col_start = self.question.col.col_start 
             col_width = self.question.col.col_width
-            if col_start == 1:
+            if col_width == 1:
                 o += 'val c(' + str(col_start) + ');0:9' + CRLF
             else :
                 o += 'val c(' + str(col_start) + ',' + str(col_start + col_width -1) + ');0:' + '9'*col_width + CRLF
@@ -577,12 +678,8 @@ class Question(object):
             lo += 'side' + CRLF
             lo += 'n23' + self.question.Q_name + ' - GRID' + CRLF
             lo += 'base1' + CRLF
-            col_start = self.question.col.col_start 
             col_width = self.question.col.col_width
-            if col_start == 1:
-                lo += 'val c(' + str(col_start) + ');0:9' + CRLF
-            else :
-                lo += 'val c(' + str(col_start) + ',' + str(col_start + col_width -1) + ');0:' + '9'*col_width + CRLF
+            lo += 'val c(a0);0:' + '9'*col_wdith + CRLF
             lo += 'n03,nosort' + CRLF
             lo += 'tots' + CRLF
             lo += CRLF
@@ -657,13 +754,16 @@ def parse_file(f):
         s = f.readline()
         if not s :
             break 
-        if len(s) == 0:
-            #空文件?
+
+        l += 1
+
+        #过滤掉空行
+        r = re.compile('\s*')
+        if len(r.sub('', s)) == 0:
             continue
 
         #print('sentense: %s' % s)
-        s = sentense_parse(s, l)
-        l += 1
+        s = parse_sentense(s, l)
 
         if s.type == Sentense.SENTENSE_BLACK:
             continue
