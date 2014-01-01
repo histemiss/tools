@@ -138,7 +138,7 @@ class Sentense_cond(Sentense):
         super(Sentense_cond, self).__init__(ts, s, l, Sentense.SENTENSE_CONDITION)
         self.output = None
 
-    def cond_ques_expr(c):
+    def cond_ques_expr(self, c):
         #使用题号的判断表达式: 'V2130,1'  前面可能带有#, 后面可能带有多个','
         #去掉头尾的空格
         r = re.compile(r'(\A\s*)|(\s*\Z)')
@@ -165,6 +165,24 @@ class Sentense_cond(Sentense):
             raise None
         col_start = q.question.col.col_start
         col_width = q.question.col.col_width
+        #如果是多选, 找出子问题
+        if q.question.type_ques == Sentense_ques.QUESTION_MULTI:
+            #如果多个子问题, 使用'and'连起来
+            if len(vs) > 1:
+                n_output = 'n' if r_not else ''
+                o_out = []
+                for i in vs:
+                    i_start = col_start + int(i)
+                    i_out = 'c' + str(col_start)+ eq_outp + '.\'1\''
+                    o_out.append(i_out)
+                output = '.and.'.join(o_out)
+                return output
+            
+            #一个子问题，和下面一块处理
+            col_start += int(vs[0])
+            col_width = 1
+            vs = ['1',]
+          
         if col_width == 1:
             n_output = 'n' if r_not else ''
             output = 'c' + str(col_start) + n_output + '\'' + '/'.join(vs) + '\''
@@ -181,34 +199,18 @@ class Sentense_cond(Sentense):
 
         return output
 
-    def cond_ques(c):
-        r = re.compile(r'\A(\s*#?[a-zA-Z][a-zA-Z1-9-_]*(,[1-9][0-9]*)+\s*)((\\|&)\1)*\Z')
-        if not r.match(c) :
-            return None
-
-        #使用'|' 和 '&'分割, 然后使用'or','and'连起来
-        o_conds = c.split('|')
-        o_out = []
-        for o in o_conds:
-            a_conds = o.split('&')
-            a_out = []
-            for a in a_conds:
-                a_out.append(cond_ques_expr(a))
-            o_out.append('.and.'.join(a_out))
-        return '.or.'.join(o_out)
-
-    def cond_col_expr(c):
+    def cond_col_expr(self, c):
         #去掉头尾的空格
         r = re.compile('(\A\s*)|(\s*\Z)')
         c = r.sub('', c)
 
         #匹配题目结构位置
-        r = re.compile('[1-9][0-9]*L[1-9][0-9]+')
+        r = re.compile('[1-9][0-9]*L[1-9][0-9]*')
         r1 = r.search(c)
         r1 = c[r1.start():r1.end()]
         p = r1.split('L')
         col_start = int(p[0])
-        col_wdith = int(p[1])
+        col_width = int(p[1])
 
         #匹配表达式的值
         r = re.compile('[0-9]+\s*\Z')
@@ -246,11 +248,19 @@ class Sentense_cond(Sentense):
 
         return output
         
-    def cond_col(c):
-        #使用结果位置作为判断表达式, 而且使用'\'和'&'连起来
-        r = re.compile(r'\A(\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+\s)((\\|&)\1)*')
-        if not r.match(c):
-            return None
+    def cond_parse(self, c):
+        #使用题号作为过滤条件
+        r_ques = re.compile(r'\A\s*#?[a-zA-Z][a-zA-Z0-9_-]*(,[0-9]+)+\s*(\\|&\s*#?[a-zA-Z][a-zA-Z0-9-_]*(,[0-9]+)+\s*)*\Z')
+
+        #使用结果位置作为过滤条件
+        r_col = re.compile(r'\A\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+\s(\\|&\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+)*\Z')
+
+        f = None
+        
+        if f == None and r_ques.match(c):
+            f = self.cond_ques_expr
+        elif f == None and r_col.match(c):
+            f = self.cond_col_expr
 
         #使用'\'和'&'分割, 使用'or', 'and'连起来
         o_conds = c.split('\\')
@@ -259,7 +269,7 @@ class Sentense_cond(Sentense):
             a_conds = o.split('&')
             a_out = []
             for a in a_conds:
-                a_out.append(cond_col(a))
+                a_out.append(f(a))
             o_out.append('.and.'.join(a_out))
         return '.or.'.join(o_out)
             
@@ -267,15 +277,14 @@ class Sentense_cond(Sentense):
         #FI ( XXXX ) :
         #先分离':'前面的条件
         cond_str = self.string.split(':')[0]
-
         #先解析括号里面的内容
+        r = re.compile('(\AFI\s+\(\s+)|(\s+\)\s+)')
+        cond_str = r.sub('', cond_str)
 
-        o = cond_ques(cond_str)
-        if o == None:
-            o = cond_col(cond_str)
+        o = self.cond_parse(cond_str)
 
         if o == None:
-            print('条件解析错误:', line)
+            print('条件解析错误:', self.string)
             raise None
         
         self.output = ';c=' + o
@@ -306,28 +315,31 @@ class Sentense_ques(Sentense):
         r = re.compile('(\A\s*)|(\s*\Z)|(\')')
 
         #解析var文件中的名字, 第一个token
-        self.name = r.sub('', self.tokens[0].string)
-        if self.name[0] != '*':
-            print("VAR问题号必须以'*'开头")
+        self.V_name = r.sub('', self.tokens[0].string)
+        if self.V_name[0] != '*':
+            print("VAR名字必须以'*'开头")
             raise None
-        self.name = self.name[1:]
+        #去掉'*'
+        self.V_name = self.V_name[1:]
 
-        #解析':'后面的字符串,也就是问题名称, 也就是最后一个token
+        #解析':'后面的字符串,也就是问题主干, 也就是最后一个token
         #一般是 英文词号.中文名称
         t = r.sub('', self.tokens[-1].string)
         if len(t) == 0:
-            self.Q_name = self.long_name = self.name
+            #如果为空
+            self.Q_name = self.long_name = self.V_name
         else :
             dot = t.find('.')
             if dot == -1:
-                #没有'.', 使用一个名字
-                self.Q_name = t
+                #没有'.', 使用VAR名称
+                self.Q_name = self.V_name
             else :
                 self.Q_name = t[:dot]
             self.long_name = t
 
         #把Q名字中的'-'改为'_'
         self.Q_name = self.Q_name.replace('-','_')
+        self.P_name = self.Q_name
         
         #检查问题的类型
         if self.tokens[1].type == Token.TOKEN_SINGLE:
@@ -432,7 +444,7 @@ class Question(object):
     def output_single(self):
         if self.loop_state == 0:
             #如果不是循环, 直接返回字符串
-            o  = 'l ' + self.question.Q_name
+            o  = 'l ' + self.question.P_name
             if self.condition:
                 #添加过滤条件
                 o += self.condition.output
@@ -498,7 +510,7 @@ class Question(object):
                     o += ';b=' + i.question.condition.output
                 o += ';col(a)=' + str(i.question.col.col_start)
                 #tab不能重名，使用VAR题号
-                o += ';x=' + i.question.name
+                o += ';x=' + i.question.P_name
                 o += ';y=' + i.question.long_name
                 o += CRLF
             o += CRLF
@@ -520,9 +532,9 @@ class Question(object):
             return o + lo
 
     def output_multi(self):
-        pub = self.question.Q_name + '.pub'
 
         if self.loop_state == 0 :
+            pub = self.question.P_name + '.pub'
             #对于不是循环的, 头部在外面, 先生成pub文件
             o = ''
             #直接遍历所有的选项
@@ -538,7 +550,7 @@ class Question(object):
             pub_f.close()
 
             #生成include命令, 包括题目头部
-            o  = 'l ' + self.question.Q_name
+            o  = 'l ' + self.question.P_name
             if self.condition:
                 o += self.condition.output
             o += CRLF
@@ -553,6 +565,9 @@ class Question(object):
             return ''
 
         else:
+            #对于循环, 使用Q_name
+            pub = self.question.Q_name + '.pub'
+            
             #准备pub文件,头部放到pub文件中
             o  = 'l &x'
             if self.condition:
@@ -589,7 +604,7 @@ class Question(object):
                 if self.condition:
                     o += ';b=' + self.condition.output
                 o += ';col(a)=' + str(self.question.col.col_start)
-                o += ';x=' + self.question.name 
+                o += ';x=' + self.question.P_name 
                 o += ';y=' + self.question.long_name
                 
             #最后的grid tab
@@ -608,7 +623,7 @@ class Question(object):
     def output_number(self):
         if self.loop_state == 0:
             #不是循环
-            o  = 'l ' + self.question.Q_name 
+            o  = 'l ' + self.question.P_name 
             if self.condition:
                 o += self.condition.output
             o += CRLF 
@@ -665,7 +680,7 @@ class Question(object):
                     o += ';b=' + i.question.condition.output
                 o += ';col(a)=' + str(i.question.col.col_start)
                 #tab不能重名，使用VAR题号
-                o += ';x=' + i.question.name
+                o += ';x=' + i.question.P_name
                 o += ';y=' + i.question.long_name
                 o += CRLF
             o += CRLF
@@ -679,7 +694,7 @@ class Question(object):
             lo += 'n23' + self.question.Q_name + ' - GRID' + CRLF
             lo += 'base1' + CRLF
             col_width = self.question.col.col_width
-            lo += 'val c(a0);0:' + '9'*col_wdith + CRLF
+            lo += 'val c(a0);0:' + '9'*col_width + CRLF
             lo += 'n03,nosort' + CRLF
             lo += 'tots' + CRLF
             lo += CRLF
@@ -688,7 +703,7 @@ class Question(object):
     def add_question(self):
         #把问题添加到dict和question中
         Question.all_ques.append(self)
-        Question.ques_dict[self.question.name] = self
+        Question.ques_dict[self.question.V_name] = self
         if not self.question.Q_name in Question.Q_ques_dict:
             Question.Q_ques_dict[self.question.Q_name] = []
         Question.Q_ques_dict[self.question.Q_name].append(self)
@@ -717,8 +732,8 @@ class Question(object):
                 c = qs[c]
 
                 #检查var号码是否连续?
-                p_no = p.question.name
-                c_no = c.question.name
+                p_no = p.question.V_name
+                c_no = c.question.V_name
                 #取出最后一部分
                 r = re.compile('\d+\Z')
                 p_r = re.search(r, p_no)
@@ -739,6 +754,9 @@ class Question(object):
                 for c in qs[1:-1]:
                     c.loop_state = 3
                 qs[-1].loop_state = 2
+                #更新P_name
+                for c in range(len(qs)):
+                    qs[c].question.P_name += '_' + str(c+1)
             
         
 def parse_file(f):
@@ -830,10 +848,7 @@ def axe_file(var_file):
     o = ''
     for q in qs: 
         if q.loop_state == 0:
-            q_name = q.question.Q_name
-            if len(q_name) == 0:
-                q_name = q.question.name
-            o += 'tab ' + q_name + ' ban1' + CRLF
+            o += 'tab ' + q.question.P_name + ' ban1' + CRLF
         elif q.loop_state != 1:
             #对于循环,只有第一个文件才输出
             pass
@@ -841,9 +856,8 @@ def axe_file(var_file):
             q_name = q.question.Q_name
             #遍历循环题目
             l_qs = Question.Q_ques_dict[q_name]
-            for i in range(len(l_qs)):
-                #题号里面使用序号
-                o += 'tab ' + q_name + '_' + str(i+1) +' ban1' + CRLF
+            for l in l_qs:
+                o += 'tab ' + l.question.P_name +' ban1' + CRLF
             #grid tab
             o += 'tab ' + q_name + ' grid' + CRLF
     o += CRLF
