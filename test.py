@@ -5,12 +5,18 @@ import re
 import os
 import sys
 
+from ques_prg import *
+
 #global control variable
 #命令行第一个字符为空格,现在没有使用
 option_black = False
 
 #回车变量
 CRLF = '\r\n'
+
+#输出文件夹
+output_dir = '.'
+
 
 #辅助函数
 
@@ -23,8 +29,11 @@ def read_open(fn):
     f = open(fn, 'r', encoding = 'gbk', newline = CRLF)
     return f
 
-#输出文件夹
-output_dir = '.'
+def write_lines(fn, lines):
+    f = open(output_dir + '/' + fn, 'w', encoding = 'gbk', newline = '')
+    f.write(CRLF.join(lines))
+    f.write(CRLF)
+    f.close()
 
 class Token(object) :
     #*SNG
@@ -187,7 +196,7 @@ class Sentense_cond(Sentense):
                 return output
             
             #如果只有一个子题号, 像单选题一样处理
-            col_start += int(vs[0]-1)
+            col_start += int(vs[0]) - 1
             col_width = 1
             vs = ['1',]
 
@@ -270,7 +279,7 @@ class Sentense_cond(Sentense):
         #使用题号作为过滤条件
         r_ques = re.compile(r'\A\s*#?[a-zA-Z][a-zA-Z0-9_-]*(,[0-9]+)+\s*(\\|&\s*#?[a-zA-Z][a-zA-Z0-9-_]*(,[0-9]+)+\s*)*\Z')
 
-        #使用结果位置作为过滤条件
+        #使用数据位置作为过滤条件
         r_col = re.compile(r'\A\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+\s(\\|&\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+)*\Z')
 
         f = None
@@ -426,7 +435,6 @@ def parse_sentense(s, l = -1):
         #print(o)
     return o
 
-
 class Question(object):
     #全局变量
     ques_dict = {}
@@ -459,265 +467,6 @@ class Question(object):
         else:
             return ''
 
-    def output_single(self):
-        if self.loop_state == 0:
-            #如果不是循环, 直接返回字符串
-            o  = 'l ' + self.question.P_name
-            if self.condition:
-                #添加过滤条件
-                o += self.condition.output
-            
-            o += CRLF
-            o += 'n23' + self.question.long_name + CRLF
-            o += 'base1' + CRLF
-
-            if self.question.col.col_width == 1:
-                #使用1位表示选项顺序
-                o += 'col ' + str(self.question.col.col_start) + CRLF
-            else :
-                #使用多位表示选项顺序
-                o += 'fld c' + str(self.question.col.col_start) + ':' + str(self.question.col.col_width) + CRLF
-            #输出选项
-            for i in self.options:
-                o += '+' + i.option_name + '=' + str(i.option_key) + CRLF
-            o += 'n03;nosort' + CRLF
-            o += 'tots' + CRLF
-            o += CRLF
-            return o
-
-        elif self.loop_state != 1:
-            #相同循环的一块输出
-            return ''
-
-        else:
-            #对于循环的题目, 把问题放到pub文件
-            pub = self.question.Q_name + '.pub'
-
-            #生成pub文件
-            o  = 'l &x'
-            if self.condition:
-                o += ';c=&b'
-            o += CRLF
-            o += 'n23&y' + CRLF
-            o += 'base1' + CRLF
-            if self.question.col.col_width ==1:
-                o += 'col a0' + CRLF
-            else :
-                o += 'fld ca0:' + self.question.col.col_width + CRLF
-            #输出选项
-            for i in self.options:
-                o += '+' + i.option_name + '=' + str(i.option_key) + CRLF
-            o += 'n03;nosort' + CRLF
-            o += 'tots' + CRLF
-            o += CRLF
-
-            #写文件
-            pub_f = write_open(output_dir + '/' + pub)
-            pub_f.write(o)
-            pub_f.close()
-
-            #获取Q_name对应的题目数组
-            qs = Question.Q_ques_dict[self.question.Q_name]
-
-            o = ''
-            #生成inlude命令
-            for i in qs:
-                o += '*include ' + pub
-                if i.condition:
-                    #如果有过滤条件 
-                    o += ';b=' + i.question.condition.output
-                o += ';col(a)=' + str(i.question.col.col_start)
-                #tab不能重名，使用VAR题号
-                o += ';x=' + i.question.P_name
-                o += ';y=' + i.question.long_name
-                o += CRLF
-            o += CRLF
-       
-            #生成grid tab
-            lo = 'l ' + self.question.Q_name + CRLF
-            #遍历所有的问题
-            for i in qs:
-                lo += 'n01' + i.question.long_name + ';col(a)=' + str(i.question.col.col_start) + CRLF
-            lo += 'side' + CRLF
-            lo += 'n23' + self.question.Q_name + ' - GRID' + CRLF
-            lo += 'base1' + CRLF
-            lo += 'col a0' + CRLF
-            for i in self.options:
-                lo += '+' + i.option_name + '=' + str(i.option_key) + CRLF
-            lo += 'n03;nosort' + CRLF
-            lo += 'tots' + CRLF
-            lo += CRLF
-            return o + lo
-
-    def output_multi(self):
-
-        if self.loop_state == 0 :
-            pub = self.question.P_name + '.pub'
-            #对于不是循环的, 头部在外面, 先生成pub文件
-            o = ''
-            #直接遍历所有的选项
-            for i in self.options:
-                o += 'n01' + i.option_name + ';c=ca' + str(i.option_key-1) + '\'1\'' + CRLF
-            o += 'n03;nosort' + CRLF
-            o += 'totm' + CRLF
-            o += CRLF
-
-            #写文件 
-            pub_f = write_open(output_dir + '/' + pub)
-            pub_f.write(o)
-            pub_f.close()
-
-            #生成include命令, 包括题目头部
-            o  = 'l ' + self.question.P_name
-            if self.condition:
-                o += self.condition.output
-            o += CRLF
-            o += 'n23' + self.question.long_name + CRLF
-            o += 'base1' + CRLF
-            o += '*include ' + pub + ';col(a)=' + str(self.question.col.col_start) + CRLF
-            o += CRLF
-            return o
-
-        elif self.loop_state != 1:
-            #已经在第一个循环中处理
-            return ''
-
-        else:
-            #对于循环, 使用Q_name
-            pub = self.question.Q_name + '.pub'
-            
-            #准备pub文件,头部放到pub文件中
-            o  = 'l &x'
-            if self.condition:
-                o += ';c=&b'
-            o += CRLF
-            o += 'n23&y' + CRLF
-            o += 'base1' + CRLF
-
-            #遍历所有的选项
-            o_noh = ''
-            for i in self.options:
-                o_noh += 'n01' + i.option_name + ';c=ca' + str(i.option_key-1) + '\'1\'' + CRLF
-            o_noh += 'n03;nosort' + CRLF
-            o_noh += 'totm' + CRLF
-            o_noh += CRLF
-            #写文件 
-            o += o_noh
-            pub_f = write_open(output_dir + '/' + pub)
-            pub_f.write(o)
-            pub_f.close()
-
-            #构造一个没有头部的
-            pub_noh = self.question.Q_name + '-nohead.pub'
-            pub_f = write_open(output_dir + '/' + pub_noh)
-            pub_f.write(o_noh)
-            pub_f.close()
-
-            #生成include命令
-            o = ''
-            #获取Q_name对应的题目数组
-            qs = Question.Q_ques_dict[self.question.Q_name]
-            for c in qs:
-                o += '*include ' + pub
-                if self.condition:
-                    o += ';b=' + self.condition.output
-                o += ';col(a)=' + str(self.question.col.col_start)
-                o += ';x=' + self.question.P_name 
-                o += ';y=' + self.question.long_name
-                
-            #最后的grid tab
-            lo = 'l ' + self.question.Q_name + CRLF
-            #遍历所有的问题
-            for i in qs:
-                lo += 'n01' + i.question.long_name + ';col(a)=' + str(i.question.col.col_start) + CRLF
-            lo += 'side' + CRLF
-            lo += 'n23' + self.question.Q_name + ' - GRID' + CRLF
-            lo += 'base1' + CRLF
-            #添加不带头的pub文件
-            lo += '*include ' + pub_noh
-            lo += CRLF
-            return o + lo
-
-    def output_number(self):
-        if self.loop_state == 0:
-            #不是循环
-            o  = 'l ' + self.question.P_name 
-            if self.condition:
-                o += self.condition.output
-            o += CRLF 
-            o += 'n23' + self.question.long_name + CRLF
-            o += 'base1' + CRLF 
-            col_start = self.question.col.col_start 
-            col_width = self.question.col.col_width
-            if col_width == 1:
-                o += 'val c(' + str(col_start) + ');0:9' + CRLF
-            else :
-                o += 'val c(' + str(col_start) + ',' + str(col_start + col_width -1) + ');0:' + '9'*col_width + CRLF
-            o += 'n03;nosort' + CRLF
-            o += 'tots' + CRLF 
-            o += CRLF
-            return o
-        elif self.loop_state != 1:
-            #循环的第一个问题输出所有的
-            return ''
-        else :
-            #对于循环的题目, 把问题放到pub文件
-            pub = self.question.Q_name + '.pub'
-
-            #生成pub文件
-            o  = 'l &x'
-            if self.condition:
-                o += ';c=&b'
-            o += CRLF
-            o += 'n23&y' + CRLF
-            o += 'base1' + CRLF
-            col_start = self.question.col.col_start 
-            col_width = self.question.col.col_width
-            if col_width == 1:
-                o += 'val c(a0);0:9' + CRLF
-            else:
-                o += 'val c(a0,a' + str(col_width-1) + ');0:' + '9' * col_width + CRLF
-            o += 'n03;nosort' + CRLF
-            o += 'tots' + CRLF
-            o += CRLF
-
-            #写文件
-            pub_f = write_open(output_dir + '/' + pub)
-            pub_f.write(o)
-            pub_f.close()
-
-            #获取Q_name对应的题目数组
-            qs = Question.Q_ques_dict[self.question.Q_name]
-
-            o = ''
-            #生成inlude命令
-            for i in qs:
-                o += '*include ' + pub
-                if i.condition:
-                    #如果有过滤条件 
-                    o += ';b=' + i.question.condition.output
-                o += ';col(a)=' + str(i.question.col.col_start)
-                #tab不能重名，使用VAR题号
-                o += ';x=' + i.question.P_name
-                o += ';y=' + i.question.long_name
-                o += CRLF
-            o += CRLF
-       
-            #生成grid tab
-            lo = 'l ' + self.question.Q_name + CRLF
-            #遍历所有的问题
-            for i in qs:
-                lo += 'n01' + i.question.long_name + ';col(a)=' + str(i.question.col.col_start) + CRLF
-            lo += 'side' + CRLF
-            lo += 'n23' + self.question.Q_name + ' - GRID' + CRLF
-            lo += 'base1' + CRLF
-            col_width = self.question.col.col_width
-            lo += 'val c(a0);0:' + '9'*col_width + CRLF
-            lo += 'n03,nosort' + CRLF
-            lo += 'tots' + CRLF
-            lo += CRLF
-            return o + lo
-            
     def add_question(self):
         #把问题添加到dict和question中
         Question.all_ques.append(self)
@@ -765,8 +514,7 @@ class Question(object):
                 if p_no + 1 != c_no:
                     loop_ok = False
                     break
-
-                    
+                   
             if loop_ok:
                 qs[0].loop_state = 1
                 for c in qs[1:-1]:
@@ -775,11 +523,11 @@ class Question(object):
                 #更新P_name
                 for c in range(len(qs)):
                     qs[c].question.P_name += '_' + str(c+1)
-            
-        
+
 def parse_file(f):
     #重值全局变量
     Question.reset_all()
+    Question_P.all_ques = []
 
     #记录当前问题
     q = None
@@ -843,8 +591,44 @@ def parse_file(f):
 
     #处理循环的题目
     Question.check_loop()
-        
-    return Question.all_ques
+
+    #遍历所有的var的问题, 生成prg的问题
+    for q in Question.all_ques:
+        qp = None
+        t = q.question.type_ques
+        if q.loop_state == 0 :
+            if t == Sentense_ques.QUESTION_SINGLE:
+                qp = Question_P_Single(q)
+            elif t == Sentense_ques.QUESTION_MULTI:
+                qp = Question_P_Multi(q)
+            else:
+                qp = Question_P_Number(q)
+            Question_P.all_ques.append(qp)
+        elif q.loop_state == 1:
+            qs = Question.Q_ques_dict[q.question.Q_name]
+            for q1 in qs:
+                if t == Sentense_ques.QUESTION_SINGLE:
+                    qp = Question_P_Loop_Single(q1)
+                elif t == Sentense_ques.QUESTION_MULTI:
+                    qp = Question_P_Loop_Multi(q1)
+                else:
+                    qp = Question_P_Loop_Number(q1)
+                Question_P.all_ques.append(qp)
+
+            #添加grid问题
+            if t == Sentense_ques.QUESTION_SINGLE:
+                qp = Question_P_Grid_Single(q)
+            elif t == Sentense_ques.QUESTION_MULTI:
+                qp = Question_P_Grid_Multi(q)
+            else:
+                qp = Question_P_Grid_Number(q)
+            Question_P.all_ques.append(qp)
+
+
+    for q in Question_P.all_ques:
+        q.format()
+                
+    return Question_P.all_ques
 
 def axe_file(var_file):
     f = read_open(sys.argv[1])
@@ -855,16 +639,14 @@ def axe_file(var_file):
 
     #生成axe文件
     axe_f = write_open(output_dir + '/axe.prg')
-    for i in qs:
-        o = i.output()
-        if o :
-            axe_f.write(o)
-    axe_f.write(CRLF)
+    for q in qs:
+        axe_f.write(CRLF.join(q.outputs))
+        axe_f.write(CRLF*2)
     axe_f.close()
     
     #tab.prg文件
     o = ''
-    for q in qs: 
+    for q in Question.all_ques: 
         if q.loop_state == 0:
             o += 'tab ' + q.question.P_name + ' ban1' + CRLF
         elif q.loop_state != 1:
