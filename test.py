@@ -153,7 +153,9 @@ class Sentense_cond(Sentense):
             r_not = True
             c = c[1:]
 
-        #使用','分割
+        #使用','分割, 第一个是题号
+        #对于单选题后面是题目的结果, 可能包含多个选项, 过滤条件是选择其中之一的选项的, 使用'or'连接
+        #对于多选题后面是子题目的题号, 需要减一, 过滤条件是同时选择这些选项的, 使用'and'连接
         vs = c.split(',')
         q = vs[0]
         vs = vs[1:]
@@ -165,34 +167,50 @@ class Sentense_cond(Sentense):
             raise None
         col_start = q.question.col.col_start
         col_width = q.question.col.col_width
+
         #如果是多选, 找出子问题
         if q.question.type_ques == Sentense_ques.QUESTION_MULTI:
             #如果多个子问题, 使用'and'连起来
+            #题号后面有多个子题号, 使用逗号连起来
+            #Q,2,4 -> c01'1'.and.c03'1'
+            # #Q,2,4 -> not.(c01'1'.and.c03'1')
+            #如果是否定, 前面使用not.表示否定
             if len(vs) > 1:
-                n_output = 'n' if r_not else ''
                 o_out = []
                 for i in vs:
-                    i_start = col_start + int(i)
-                    i_out = 'c' + str(col_start)+ eq_outp + '.\'1\''
+                    i_start = col_start + int(i) -1
+                    i_out = 'c' + str(col_start) + '.\'1\''
                     o_out.append(i_out)
                 output = '.and.'.join(o_out)
+                if r_not:
+                    output = 'not.(' + output + ')'
                 return output
             
-            #一个子问题，和下面一块处理
-            col_start += int(vs[0])
+            #如果只有一个子题号, 像单选题一样处理
+            col_start += int(vs[0]-1)
             col_width = 1
             vs = ['1',]
-          
+
+        #单选题
         if col_width == 1:
+            #如果题目的结果使用1位, 使用简化的方式
+            #如果Q是单选  Q,3 -> c0'3'
+            #如果Q是多选  Q,3 -> c02'1'
+            #如果是否定, 使用n  c0n'3'
             n_output = 'n' if r_not else ''
-            output = 'c' + str(col_start) + n_output + '\'' + '/'.join(vs) + '\''
+            output = 'c' + str(col_start) + n_output + '\'' + ''.join(vs) + '\''
         else:
+            #如果题目结果使用多位, 使用'eq'/'ne'的方式
             if len(vs) == 1:
-                #只有一个值,使用'eq,ne'
+                #只有一个选项,使用'eq'或者'ne'
+                #Q,12 -> c0.eq.12
+                #如果是否定, 使用ne
                 eq_outp = 'ne' if r_not else 'eq'
                 output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').' + eq_outp + '.' + vs[0]
             else:
                 #多个值,使用'in'
+                #Q,10,20,99 -> c0.in.(10,20,99) 
+                #如果是否定, 千米使用not表示否定
                 output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').in(' + ','.join(vs) + ')'
                 if r_not:
                     output = 'not.' + output
