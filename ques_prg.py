@@ -98,6 +98,7 @@ class Question_P_Single(Question_P):
             self.col = 'fld c' + str(col_start) + ':' + str(col_width)
 
         #题目的选项, +选项描述=选项值
+        super(Question_P_Single, self).init_single_options()
 
         #结尾空行, 固定值  'n03,nosort'
         self.n03 = 'n03;nosort'
@@ -202,6 +203,9 @@ class Question_P_Loop_Single(Question_P):
 
         #选项
         super(Question_P_Loop_Single, self).init_single_options()
+        print('test', self.options)
+        import pdb 
+        pdb.set_trace()
         
         self.n03 = 'n03;nosort'
         self.tail = 'tots'

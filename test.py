@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 # -*- coding:utf-8 -*- 
 
 import re
@@ -22,17 +22,17 @@ output_dir = '.'
 
 #读打开文件，不需要转义回车
 def write_open(fn):
-    f = open(fn, 'w', encoding = 'gbk', newline = '')
+    f = open(fn, 'w')
     return f
 
 def read_open(fn):
-    f = open(fn, 'r', encoding = 'gbk', newline = CRLF)
+    f = open(fn, 'r')
     return f
 
 def write_lines(fn, lines):
-    f = open(output_dir + '/' + fn, 'w', encoding = 'gbk', newline = '')
-    f.write(CRLF.join(lines))
-    f.write(CRLF)
+    f = open(output_dir + '/' + fn, 'w')
+    f.write(CRLF.join(lines).encode('gbk'))
+    f.write(CRLF.encode('gbk'))
     f.close()
 
 class Token(object) :
@@ -456,18 +456,11 @@ class Question(object):
     def __str__(self):
         return '%s => %s\n' % ( Sentense_ques.question_type_names[self.question.type_ques],self.sentenses[0].string)
 
-    def output(self):
-        
-        if self.question.type_ques == Sentense_ques.QUESTION_SINGLE:
-            return self.output_single()
-        elif self.question.type_ques == Sentense_ques.QUESTION_MULTI:
-            return self.output_multi()
-        elif self.question.type_ques == Sentense_ques.QUESTION_NUMBER:
-            return self.output_number()
-        else:
-            return ''
-
     def add_question(self):
+        #对于单选题, 如果没有选项,遍为number问题
+        if self.question.type_ques == Sentense_ques.QUESTION_SINGLE and len(self.options) == 0:
+            self.question.type_ques = Sentense_ques.QUESTION_NUMBER
+
         #把问题添加到dict和question中
         Question.all_ques.append(self)
         Question.ques_dict[self.question.V_name] = self
@@ -538,6 +531,8 @@ def parse_file(f):
         s = f.readline()
         if not s :
             break 
+
+        s = s.decode('gbk')
 
         l += 1
 
@@ -640,15 +635,17 @@ def axe_file(var_file):
     #生成axe文件
     axe_f = write_open(output_dir + '/axe.prg')
     for q in qs:
-        axe_f.write(CRLF.join(q.outputs))
-        axe_f.write(CRLF*2)
+        axe_f.write((CRLF.join(q.outputs)).encode('gbk'))
+        axe_f.write(CRLF.encode('gbk'))
+        axe_f.write(CRLF.encode('gbk'))
     axe_f.close()
     
     #tab.prg文件
-    o = ''
+    lines = []
     for q in Question.all_ques: 
+        o = ''
         if q.loop_state == 0:
-            o += 'tab ' + q.question.P_name + ' ban1' + CRLF
+            o = 'tab ' + q.question.P_name + ' ban1'
         elif q.loop_state != 1:
             #对于循环,只有第一个文件才输出
             pass
@@ -657,14 +654,13 @@ def axe_file(var_file):
             #遍历循环题目
             l_qs = Question.Q_ques_dict[q_name]
             for l in l_qs:
-                o += 'tab ' + l.question.P_name +' ban1' + CRLF
+                o = 'tab ' + l.question.P_name +' ban1'
+                lines.append(o)
             #grid tab
-            o += 'tab ' + q_name + ' grid' + CRLF
-    o += CRLF
+            o = 'tab ' + q_name + ' grid'
+            lines.append(o)
 
-    prg_f = write_open(output_dir + '/tab.prg')
-    prg_f.write(o)
-    prg_f.close()
+    write_lines('tab.prg', lines)
 
 def bat_file(var_file):
     #根据VAR文件名构造DAT文件名
@@ -672,81 +668,73 @@ def bat_file(var_file):
     r = re.compile('\.var\Z', re.I)
     DATA_F = r.sub('.dat', DATA_F)
 
+    lines = []
     #1.bat文件
-    o  = '@echo *include 1.prn;e=1 >dp.prn' + CRLF
-    o += 'call quantum dp.prn ' + DATA_F + CRLF
-    o += 'call qout -p a.exp' + CRLF
-    o += 'call q2cda -p a.exp count.csv' + CRLF
+    lines.append('@echo *include 1.prn;e=1 >dp.prn')
+    lines.append('call quantum dp.prn ' + DATA_F)
+    lines.append('call qout -p a.exp')
+    lines.append('call q2cda -p a.exp count.csv')
 
-    o += CRLF
+    lines.append('')
 
-    o += '@echo *include 1.prn;e=2 >dp.prn' + CRLF
-    o += 'call quantum dp.prn ' + DATA_F + CRLF
-    o += 'call qout -p a.exp' + CRLF
-    o += 'call q2cda -p a.exp col.csv' + CRLF
-    o += CRLF
-    o += 'call quclean -a -y' + CRLF
-    o += 'del a.exp' + CRLF
-    o += 'del *.bak' + CRLF
-    o += CRLF
+    lines.append('@echo *include 1.prn;e=2 >dp.prn')
+    lines.append('call quantum dp.prn ' + DATA_F)
+    lines.append('call qout -p a.exp')
+    lines.append('call q2cda -p a.exp col.csv')
+    lines.append('')
+    lines.append('call quclean -a -y')
+    lines.append('del a.exp')
+    lines.append('del *.bak')
 
-    f = write_open(output_dir + '/1.bat')
-    f.write(o)
-    f.close()
+    write_lines('1.bat', lines)
 
 def prn_file():
-    o  = 'struct;read=0;reclen=32000' + CRLF
-    o += 'ed' + CRLF
-    o += '' + CRLF
-    o += '/* ADEval' + CRLF
-    o += '' + CRLF
-    o += '/*most often user' + CRLF
-    o += '' + CRLF
-    o += 'end' + CRLF
-    o += 'a;decp=2;dec=0;spechar=->;op=&e;side=40;pagwid=5000;paglen=300;indent=2;flush;nopage;nz;nosort;linesbef=0;linesaft=0;nopc;topc;notype;netsort;nzcol' + CRLF
-    o += 'ttl' + CRLF
-    o += 'ttl' + CRLF
-    o += '#include tab.prg' + CRLF
-    o += '#include axe.prg' + CRLF
-    o += '#include col.prg' + CRLF
-    o += CRLF
+    lines = []
+    lines.append('struct;read=0;reclen=32000')
+    lines.append('ed')
+    lines.append('')
+    lines.append('/* ADEval')
+    lines.append('')
+    lines.append('/*most often user')
+    lines.append('')
+    lines.append('end')
+    lines.append('a;decp=2;dec=0;spechar=->;op=&e;side=40;pagwid=5000;paglen=300;indent=2;flush;nopage;nz;nosort;linesbef=0;linesaft=0;nopc;topc;notype;netsort;nzcol')
+    lines.append('ttl')
+    lines.append('ttl')
+    lines.append('#include tab.prg')
+    lines.append('#include axe.prg')
+    lines.append('#include col.prg')
 
-    f = write_open(output_dir + '/1.prn')
-    f.write(o)
-    f.close()
+    write_lines('1.prn', lines)
 
 def prg_file():
-    o  = 'l ban1' + CRLF
-    o += 'n10Total' + CRLF
-    o += CRLF
-    f = write_open(output_dir + '/col.prg')
-    f.write(o)
-    f.close()
+    lines = []
+    lines.append('l ban1')
+    lines.append('n10Total')
+
+    write_lines('col.prg', lines)
 
 def maxima_qt_file():
-    o  = 'axes=12000' + CRLF
-    o += 'elms=14500' + CRLF
-    o += 'heap=1780000' + CRLF
-    o += 'namevars=13000' + CRLF
-    o += 'incs=11000' + CRLF
-    o += 'incheap=14000' + CRLF
-    o += 'coldefs=1250' + CRLF
-    o += 'textdefs=1200' + CRLF
-    o += 'punchdefs=1320' + CRLF
+    lines = []
+    lines.append('axes=12000')
+    lines.append('elms=14500')
+    lines.append('heap=1780000')
+    lines.append('namevars=13000')
+    lines.append('incs=11000')
+    lines.append('incheap=14000')
+    lines.append('coldefs=1250')
+    lines.append('textdefs=1200')
+    lines.append('punchdefs=1320')
 
-    f = write_open(output_dir + '/MAXIMA.QT')
-    f.write(o)
-    f.close()
+    write_lines('MAXIMA.QT', lines)
 
 def alias_qt_file():
-    o  = u'base1 N10基数：有效被访者;nocol;noexport' + CRLF
-    o += u'tots n05合计;nocol;nosort;nonz' + CRLF
-    o += u'totm n01合计;c=+;nocol;nosort;noexport;nonz' + CRLF
-    o += CRLF
+    lines = []
+    lines.append(u'base1 N10基数：有效被访者;nocol;noexport')
+    lines.append(u'tots n05合计;nocol;nosort;nonz')
+    lines.append(u'totm n01合计;c=+;nocol;nosort;noexport;nonz')
     
-    f = write_open(output_dir + '/ALIAS.QT')
-    f.write(o)
-    f.close()
+    write_lines('ALIAS.QT', lines)
 
 if __name__ == '__main__' :
     if len(sys.argv) < 2:
