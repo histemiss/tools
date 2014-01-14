@@ -1,4 +1,4 @@
-# -*- coding:utf-8 -*- 
+﻿# -*- coding:utf-8 -*- 
 
 from test import write_lines
 
@@ -203,9 +203,7 @@ class Question_P_Loop_Single(Question_P):
 
         #选项
         super(Question_P_Loop_Single, self).init_single_options()
-        print('test', self.options)
-        import pdb 
-        pdb.set_trace()
+        #print('test', self.options)
         
         self.n03 = 'n03;nosort'
         self.tail = 'tots'
