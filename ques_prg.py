@@ -1,4 +1,4 @@
-﻿# -*- coding:utf-8 -*- 
+# -*- coding:utf-8 -*- 
 
 from test import write_lines
 
@@ -131,14 +131,15 @@ class Question_P_Multi(Question_P):
         #题目的选项
         super(Question_P_Multi, self).init_multi_options()
 
-        #结尾空行, 固定值  'n03,nosort'
-        self.n03 = ''
+        #结尾空行, 固定值  'n03;nosort'
+        self.n03 = 'n03;nosort'
         #结尾, 固定值totm
         self.tail = 'totm'
 
     def format(self):
         #构造pub文件
-        lines = self.options
+        lines = []
+        lines += self.options
         lines.append(self.n03)
         lines.append(self.tail)
         write_lines(self.pub_fn, lines)
@@ -296,7 +297,6 @@ class Question_P_Loop_Number(Question_P):
         self.base = 'base1'
 
         self.val = ''
-        col_start = q.question.col.col_start 
         col_width = q.question.col.col_width
         if col_width == 1:
             self.val = 'val c(a0);0:9'
@@ -423,7 +423,8 @@ class Question_P_Grid_Multi(Question_P_Grid):
 
     def format(self):
         #pub文件
-        lines = self.options
+        lines = []
+        lines += self.options
         lines.append(self.n03)
         lines.append(self.tail)
         write_lines(self.pub_fn, lines)

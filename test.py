@@ -12,7 +12,7 @@ from ques_prg import *
 option_black = False
 
 #回车变量
-CRLF = '\r\n'
+CRLF = '\n'
 
 #输出文件夹
 output_dir = '.'
@@ -31,7 +31,7 @@ def read_open(fn):
 
 def write_lines(fn, lines):
     f = open(output_dir + '/' + fn, 'w')
-    f.write(CRLF.join(lines).encode('gbk'))
+    f.write((CRLF.join(lines)).encode('gbk'))
     f.write(CRLF.encode('gbk'))
     f.close()
 
