@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*- 
 
-from test import write_lines
+from ques import write_lines
 
 class Question_P(object):
     #格式化类型

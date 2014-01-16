@@ -13,10 +13,74 @@ import gettext
 
 # begin wxGlade: extracode
 # end wxGlade
+#import ques
 
+class QuesGrid(wx.grid.PyGridTableBase):
+    QuesCol = ['VAR题号', '题目主干', '过滤条件', '题目选项', '题目属性', 'base', '结果位置' ]
+    QUES_VAR = 0
+    QUES_TRUNK = 1
+    QUES_FILT = 2
+    QUES_OPTI = 3
+    QUES_FEAT = 4
+    QUES_BASE = 5
+    QUES_RESU = 6
+
+    def __init__(self):
+        super(QuesGrid, self).__init__()
+        self.all_ques = []
+
+    def ResetQues(self):
+        #打开VAR文件后,根据解析结果更新grid
+        pass
+
+    def CanHaveAttributes(self):
+        return True
+
+    #columes
+    def GetColLabelValue(self, col):
+        return QuesGrid.QuesCol[col]
+
+    def GetNumberCols(self):
+        return len(QuesGrid.QuesCol)
+
+    #rows
+    def GetNumberRows(self):
+        return len(self.all_ques) 
+
+    def GetRowLabelValue(self, row):
+        return str(row)
+
+    #cell value
+    def GetValue(self, row, col):
+        if len(self.all_ques) == 0:
+            return '没有数据'
+
+        pq = self.all_ques[row]
+        q = pq.question
+        
+        if col == QuesGrid.QUES_VAR:
+            return q.question.V_name
+        elif col == QuesGrid.QUES_TRUNK:
+            return q.question.long_name
+        elif col == QuesGrid.QUES_FILT:
+            if q.condition:
+                return q.condition.output
+            return ''
+        elif col == QuesGrid.QUES_OPTI:
+            return '选项'
+        elif col == QuesGrid.QUES_FEAT:
+            return '属性'
+        elif col == QuesGrid.QUES_BASE:
+            return pq.base
+        elif col == QuesGrid.QUES_RESU:
+            return "%d,%d" % (q.question.col_start, q.question.col_width)
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
+
+        #创建gridtable
+        self.gt = QuesGrid()
+
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
@@ -50,9 +114,6 @@ class MainFrame(wx.Frame):
         self.__do_layout()
         # end wxGlade
 
-        #prg问题
-        self.p_ques = []
-
     def __set_properties(self):
         # begin wxGlade: MainFrame.__set_properties
         self.SetTitle(("NToQ"))
@@ -64,8 +125,11 @@ class MainFrame(wx.Frame):
             self.frame_main_statusbar.SetStatusText(frame_main_statusbar_fields[i], i)
         self.pane_up.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.pane_up.SetScrollRate(0, 0)
-        self.grid_ques.CreateGrid(10, 3)
+
+        #grid
+        self.grid_ques.SetTable(self.gt, True)
         self.grid_ques.SetBackgroundColour(wx.Colour(255, 255, 255))
+
         self.pane_down.SetScrollRate(0, 0)
         # end wxGlade
 
