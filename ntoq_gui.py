@@ -13,10 +13,11 @@ import gettext
 
 # begin wxGlade: extracode
 # end wxGlade
-#import ques
+import ques
+import os
 
 class QuesGrid(wx.grid.PyGridTableBase):
-    QuesCol = ['VAR题号', '题目主干', '过滤条件', '题目选项', '题目属性', 'base', '结果位置' ]
+    QuesCol = ['VAR题号', '题目主干', '过滤条件', '题目选项', '题目属性', 'base', '结果位置', "PRG内容", "PUB内容" ]
     QUES_VAR = 0
     QUES_TRUNK = 1
     QUES_FILT = 2
@@ -24,14 +25,37 @@ class QuesGrid(wx.grid.PyGridTableBase):
     QUES_FEAT = 4
     QUES_BASE = 5
     QUES_RESU = 6
+    QUES_PRG = 7
+    QUES_PUB = 8
 
     def __init__(self):
         super(QuesGrid, self).__init__()
         self.all_ques = []
 
-    def ResetQues(self):
+    def ResetQues(self, qs):
         #打开VAR文件后,根据解析结果更新grid
-        pass
+        old_qs = self.all_ques
+        self.all_ques = qs
+
+        self.GetView().BeginBatch()
+        #删除所有的row
+        msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, 0, len(old_qs))
+        self.GetView().ProcessTableMessage(msg)
+        
+        #获取新的数据
+        msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, len(qs))
+        self.GetView().ProcessTableMessage(msg)
+        #msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_)
+        #self.GetView().ProcessTableMessage(msg)
+        self.GetView().EndBatch()
+        
+        #更新scrollbar
+        h,w = self.GetView().GetSize()
+        self.GetView().SetSize((h+1, w+1))
+        self.GetView().SetSize((h, w))
+        self.GetView().ForceRefresh()
+
+        del old_qs
 
     def CanHaveAttributes(self):
         return True
@@ -56,7 +80,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
             return '没有数据'
 
         pq = self.all_ques[row]
-        q = pq.question
+        q = pq.q
         
         if col == QuesGrid.QUES_VAR:
             return q.question.V_name
@@ -65,33 +89,241 @@ class QuesGrid(wx.grid.PyGridTableBase):
         elif col == QuesGrid.QUES_FILT:
             if q.condition:
                 return q.condition.output
-            return ''
+            return '无'
         elif col == QuesGrid.QUES_OPTI:
-            return '选项'
+            return '查看'
         elif col == QuesGrid.QUES_FEAT:
-            return '属性'
+            return ','.join(pq.features())
         elif col == QuesGrid.QUES_BASE:
             return pq.base
         elif col == QuesGrid.QUES_RESU:
-            return "%d,%d" % (q.question.col_start, q.question.col_width)
+            return "%d,%d" % (q.question.col.col_start, q.question.col.col_width)
+        elif col == QuesGrid.QUES_PRG:
+            return '查看'
+        elif col == QuesGrid.QUES_PUB:
+            if len(pq.pub_fn) == 0:
+                return '无'
+            return pq.pub_fn
+        
+        return ''
+
+#设置BASE数据的窗口
+class BaseModDialog(wx.Dialog):
+    def __init__(self, *args, **kwds):
+        # begin wxGlade: BaseModDialog.__init__
+        kwds["style"] = wx.DEFAULT_DIALOG_STYLE
+        wx.Dialog.__init__(self, *args, **kwds)
+        self.text_ctrl_key = wx.TextCtrl(self, wx.ID_ANY, "")
+        self.text_ctrl_data = wx.TextCtrl(self, wx.ID_ANY, "")
+        self.static_line_1 = wx.StaticLine(self, wx.ID_ANY)
+        self.button_ok = wx.Button(self, wx.ID_ANY, (u"确认"))
+        self.button_ok.SetDefault()
+        self.button_cancel = wx.Button(self, wx.ID_ANY, (u"取消"))
+        self.Bind(wx.EVT_BUTTON, self.OnOK, self.button_ok)
+        self.Bind(wx.EVT_BUTTON, self.OnCancel, self.button_cancel)
+
+        self.__set_properties()
+        self.__do_layout()
+        # end wxGlade
+
+    def OnOK(self):
+        key = self.text_ctrl_key.GetLineText(0).strip()
+        data = self.text_ctrl_data.GetLineText(0).strip()
+        #检查空值
+        if key == '' or data == '':
+            wx.MessageBox("请输入有效数据", wx.ID_OK)
+            return 
+
+        #检查重复
+        if key in self.GetParent().base_dict:
+            wx.MessageBox("BASE名称和已有的重复")
+            return
+        
+        self.EndModal(True)
+
+    def OnCancel(self):
+        self.EndModal(False)
+
+    def __set_properties(self):
+        # begin wxGlade: BaseModDialog.__set_properties
+        self.SetTitle((u"操作base内容"))
+        self.static_line_1.SetMinSize((682, 2))
+        # end wxGlade
+
+    def __do_layout(self):
+        # begin wxGlade: BaseModDialog.__do_layout
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer_3 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_1 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add((20, 25), 0, wx.ADJUST_MINSIZE, 0)
+        label_key = wx.StaticText(self, wx.ID_ANY, (u"BASE名称"), style=wx.ALIGN_RIGHT)
+        label_key.SetMinSize((80, 20))
+        sizer_1.Add(label_key, 0, wx.LEFT | wx.ALIGN_RIGHT, 10)
+        sizer_1.Add(self.text_ctrl_key, 1, wx.RIGHT | wx.EXPAND | wx.ADJUST_MINSIZE, 10)
+        sizer.Add(sizer_1, 0, wx.ALL | wx.EXPAND, 3)
+        label_data = wx.StaticText(self, wx.ID_ANY, (u"BASE内容"), style=wx.ALIGN_RIGHT)
+        label_data.SetMinSize((80, 20))
+        sizer_2.Add(label_data, 0, wx.LEFT | wx.ALIGN_RIGHT, 10)
+        sizer_2.Add(self.text_ctrl_data, 1, wx.RIGHT | wx.EXPAND | wx.ADJUST_MINSIZE, 10)
+        sizer.Add(sizer_2, 0, wx.ALL | wx.EXPAND, 3)
+        sizer.Add(self.static_line_1, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 5)
+        sizer_3.Add(self.button_ok, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.SHAPED, 0)
+        sizer_3.Add(self.button_cancel, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.SHAPED, 0)
+        sizer.Add(sizer_3, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 20)
+        self.SetSizer(sizer)
+        sizer.Fit(self)
+        self.Layout()
+        # end wxGlade
+
+
+
+#操作base的窗口
+class BaseDialog(wx.Dialog):
+    def __init_(self, *args, **kwds):
+        # begin wxGlade: BaseDialog.__init__
+        kwds["style"] = wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.THICK_FRAME
+        wx.Dialog.__init_(self, *args, **kwds)
+
+        self.list_ctrl_base = wx.ListCtrl(self, wx.ID_ANY, style=wx.LC_REPORT | wx.RAISED_BORDER|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES)
+
+        self.button_add = wx.Button(self, wx.ID_ANY, (u"保存"))
+        self.button_del = wx.Button(self, wx.ID_ANY, (u"删除"))
+        self.button_mod = wx.Button(self, wx.ID_ANY, (u"修改"))
+        self.button_read = wx.Button(self, wx.ID_ANY, (u"导入"))
+        self.button_1_copy_2_copy = wx.Button(self, wx.ID_ANY, ("button_1"))
+        self.button_base_2 = wx.Button(self, wx.ID_ANY, ("button_1"))
+
+        self.__set_properties()
+        self.__do_layout()
+        # end wxGlade
+
+        #操作数据, 参数base中是字典
+        self.base_dic = kwds['base']
+        self.list_ctrl_base.InsertColumn(0, '标签')
+        self.list_ctrl_base.InsertColumn(1, '文本')
+        #插入数据
+        for i in self.base_dic:
+            index = self.list_ctrl_base.InsertStringItem(-1, i)
+            self.list_ctrl_base.SetStringItem(index, 1, self.base_dic[i])
+
+        #参数op表示选择还是修改
+        self.sel = kwds['sel']
+        if self.sel == True:
+            self.button_add.hide()
+            self.button_del.hide()
+            self.button_mod.hide()
+            self.button_read.hide()
+            self.button_base_1.hide()
+            self.button_base_1.hide()
+
+    def __set_properties(self):
+        # begin wxGlade: BaseDialog.__set_properties
+        self.SetTitle((u"操作BASE数据"))
+        self.SetSize((500, 600))
+        self.SetBackgroundColour(wx.Colour(255, 255, 255))
+        self.button_add.SetMinSize((100, 50))
+        self.button_del.SetMinSize((100, 50))
+        self.button_mod.SetMinSize((100, 50))
+        self.button_read.SetMinSize((100, 50))
+        self.button_base_1.SetMinSize((100, 50))
+        self.button_base_2.SetMinSize((100, 50))
+        # end wxGlade
+
+    def __do_layout(self):
+        # begin wxGlade: BaseDialog.__do_layout
+        sizer_base = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_right = wx.BoxSizer(wx.VERTICAL)
+        sizer_base.Add(self.list_ctrl_base, 1, wx.ALL | wx.EXPAND, 5)
+        sizer_right.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
+        sizer_right.Add(self.button_add, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
+        sizer_right.Add(self.button_del, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
+        sizer_right.Add(self.button_mod, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.FIXED_MINSIZE, 5)
+        sizer_right.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
+        sizer_right.Add(self.button_read, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.FIXED_MINSIZE, 5)
+        sizer_right.Add(self.button_base_1, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
+        sizer_right.Add(self.button_base_2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
+        sizer_right.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
+        sizer_base.Add(sizer_right, 0, wx.EXPAND, 0)
+        self.SetSizer(sizer_base)
+        self.Layout()
+        # end wxGlade
+
+    def OnAdd(self):
+        #增加base
+        base_dlg = BaseModDialog()
+        res = base_dlg.ShowModal()
+        if res == True:
+            key = base_dlg.text_ctrl_key.GetLineText(0)
+            data = base_dlg.text_ctrl_data.GetLineText(0)
+            self.base_dict[key] = data
+            index = self.list_ctrl_base.InsertStringItem(-1, key)
+            self.list_ctrl_base.SetStringItem(index, 1, self.base_dic[key])
+            self.list_ctrl_base.Select(index)
+
+    def OnDel(self):
+        sel = self.list_ctrl_base.GetFirstSelected()
+        if sel == -1:
+            wx.MessageBox("请先在左边表格中选中一个BASE", wx.ID_OK)
+            return
+        
+        key = self.list_ctrl_base.GetItemText(sel)
+        if key in self.base_dict:
+            del sel.base_dict[key]
+            self.list_ctrl_base.DeleteItem(sel)
+
+    def OnMod(self):
+        sel = self.list_ctrl_base.GetFirstSelected()
+        if sel == -1:
+            wx.MessageBox("请先在左边表格中选中一个BASE", wx.ID_OK)
+            return
+
+        key = self.list_ctrl_base.GetItemText(sel)
+        if not key in self.base_dict:
+            wx.MessageBox("严重错误!!", wx.ID_OK)
+            return
+        data = self.base_dict[key]
+        
+        base_dlg = BaseModDialog()
+        base_dlg.text_ctrl_key.AppendText(key)
+        base_dlg.text_ctrl_key.Enable(False)
+        base_dlg.text_ctrl_data.AppendText(data)
+        if base_dlg.ShowModal() == True:
+            data = base_dlg.text_ctrl_data.GetLineText(0)
+            self.base_dict[key] = data
+            self.list_ctrl_base.SetStringItem(sel, 1, self.base_dic[key])
+            self.list_ctrl_base.Select(sel)
+
 
 class MainFrame(wx.Frame):
-    def __init__(self, *args, **kwds):
+    def __init(self, *args, **kwds):
 
         #创建gridtable
         self.gt = QuesGrid()
+        #表示当前解析的数据是否保存
+        self.dirty = False
+        #base数据库
+        self.base_dict = {}
 
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
-        wx.Frame.__init__(self, *args, **kwds)
+        wx.Frame.__init(self, *args, **kwds)
         
         # Menu Bar
         self.frame_main_menubar = wx.MenuBar()
-        wxglade_tmp_menu = wx.Menu()
-        self.frame_main_menubar.Append(wxglade_tmp_menu, ("&File"))
-        wxglade_tmp_menu = wx.Menu()
-        self.frame_main_menubar.Append(wxglade_tmp_menu, ("&Tools"))
+        menu_file = wx.Menu()
+        menu_file_open = menu_file.Append(-1, "&Open", "打开VAR文件")
+        menu_file_save = menu_file.Append(-1, "&Save", "保存PRG项目")
+        self.frame_main_menubar.Append(menu_file, ("&File"))
+        self.Bind(wx.EVT_MENU, self.OnOpen, menu_file_open)
+        self.Bind(wx.EVT_MENU, self.OnSave, menu_file_save)
+
+        menu_tool = wx.Menu()
+        self.menu_tool_base = menu_tool.Append(-1, "&Base", "操作BASE数据")
+        #self.Bind(wx.EVT_MENU, self.OnBase, self.menu_tool_base)
+        self.frame_main_menubar.Append(menu_tool, ("&Tools"))
         self.SetMenuBar(self.frame_main_menubar)
+
         # Menu Bar end
         self.frame_main_statusbar = self.CreateStatusBar(2, 0)
         self.window_spli = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_3DSASH)
@@ -183,6 +415,32 @@ class MainFrame(wx.Frame):
         self.SetSizer(sizer_main)
         self.Layout()
         # end wxGlade
+
+    def OnOpen(self, event):
+        if self.dirty :
+            res = wx.MessageBox("当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES | wx.CANCEL)
+            if res != wx.YES:
+                return
+
+        dia_file = wx.FileDialog(None, "选择VAR文件", os.getcwd(), "", "VAR文件 (*.VAR)|*.VAR", wx.OPEN)
+        if dia_file.ShowModal() == wx.ID_OK:
+            self.dirty = False
+            qs = ques.Question.open_var(dia_file.GetPath())
+            self.gt.ResetQues(qs)
+            
+        
+    def OnSave(self, event):
+        prg_dir = wx.DirSelector("选择保存位置...")
+        if prg_dir.strip():
+            #保存文件
+            pass
+          
+    def OnBase(self, event):
+        dlg_base = BaseDialog(sel=True, base = self.base_dict)
+        dlg_base.ShowModal()
+        #测试
+        wx.MessageBox(str(self.base_dict))
+        
 
 # end of class MainFrame
 if __name__ == "__main__":

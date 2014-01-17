@@ -1,7 +1,5 @@
 # -*- coding:utf-8 -*- 
 
-from ques import write_lines
-
 class Question_P(object):
     #格式化类型
     QUESTION_OUTPUT_SINGLE = 0
@@ -13,12 +11,30 @@ class Question_P(object):
     QUESTION_OUTPUT_GRID_SINGLE = 6
     QUESTION_OUTPUT_GRID_MULTI = 7
     QUESTION_OUTPUT_GRID_NUMBER = 8
-    QUESTINO_OUTPUT_TOP2_NUMBER = 9
-    QUESTINO_OUTPUT_TOP2_MULTI = 10
-    QUESTINO_OUTPUT_TOP2_SINGLE = 11
+    QUESTION_OUTPUT_TOP2_NUMBER = 9
+    QUESTION_OUTPUT_TOP2_MULTI = 10
+    QUESTION_OUTPUT_TOP2_SINGLE = 11
     QUESTION_OUTPUT_MEAN_NUMBER = 12
     QUESTION_OUTPUT_MEAN_SINGLE = 13
     QUESTION_OUTPUT_MEAN_MULTI = 14
+
+    feat_dict = {
+        '单选':[QUESTION_OUTPUT_SINGLE, QUESTION_OUTPUT_LOOP_SINGLE, QUESTION_OUTPUT_GRID_SINGLE, QUESTION_OUTPUT_TOP2_SINGLE, QUESTION_OUTPUT_MEAN_SINGLE], 
+        '多选':[QUESTION_OUTPUT_MULTI, QUESTION_OUTPUT_LOOP_MULTI, QUESTION_OUTPUT_GRID_MULTI, QUESTION_OUTPUT_TOP2_MULTI, QUESTION_OUTPUT_MEAN_MULTI], 
+        '数字':[QUESTION_OUTPUT_NUMBER, QUESTION_OUTPUT_LOOP_NUMBER, QUESTION_OUTPUT_GRID_NUMBER, QUESTION_OUTPUT_TOP2_NUMBER, QUESTION_OUTPUT_MEAN_NUMBER], 
+        '循环':[QUESTION_OUTPUT_LOOP_MULTI, QUESTION_OUTPUT_LOOP_SINGLE, QUESTION_OUTPUT_LOOP_NUMBER],
+        'GRID':[QUESTION_OUTPUT_GRID_SINGLE, QUESTION_OUTPUT_GRID_MULTI, QUESTION_OUTPUT_GRID_NUMBER],
+        'TOP2':[QUESTION_OUTPUT_TOP2_SINGLE, QUESTION_OUTPUT_TOP2_MULTI, QUESTION_OUTPUT_TOP2_NUMBER],
+        'MEAN':[QUESTION_OUTPUT_MEAN_SINGLE, QUESTION_OUTPUT_MEAN_MULTI, QUESTION_OUTPUT_MEAN_NUMBER],
+        }
+
+    def features(self):
+        #根据type计算属性
+        o = []
+        for i in Question_P.feat_dict:
+            if self.type in Question_P.feat_dict[i]:
+                o.append(i)
+        return o
 
     #保存所有结果
     all_ques = []
@@ -43,8 +59,10 @@ class Question_P(object):
         #结尾, 固定值tots/totm
         self.tail = ''
 
-        self.pub_fn = ''
         self.include = ''
+
+        self.pub_fn = ''
+        self.pub_lines = []
 
         #格式化之后的结果
         self.outputs = []
@@ -138,11 +156,10 @@ class Question_P_Multi(Question_P):
 
     def format(self):
         #构造pub文件
-        lines = []
-        lines += self.options
-        lines.append(self.n03)
-        lines.append(self.tail)
-        write_lines(self.pub_fn, lines)
+        self.pub_lines = []
+        self.pub_lines += self.options
+        self.pub_lines.append(self.n03)
+        self.pub_lines.append(self.tail)
         
         #构造axe文件的内容
         self.outputs = []
@@ -154,6 +171,8 @@ class Question_P_Multi(Question_P):
 class Question_P_Number(Question_P):
     def __init__(self, q):
         super(Question_P_Number, self).__init__(q, Question_P.QUESTION_OUTPUT_NUMBER)
+
+        #头部
         super(Question_P_Number, self).init_head()
         
         #构造val命令
@@ -179,62 +198,77 @@ class Question_P_Number(Question_P):
         self.outputs.append(self.n03)
         self.outputs.append(self.tail)
 
-class Question_P_Loop_Single(Question_P):
+class Question_P_Loop(Question_P):
+    def __init__(self, q, t):
+        #所有循环的父类
+        super(Question_P_Loop, self).__init__(q, t)
+
+    def init_loop_head(self):
+        #pub文件名
+        self.pub_fn = self.q.question.Q_name + '.pub'
+
+        #初始化pub文件中的头部
+        self.l = 'l &x'
+        if self.q.condition:
+            self.l += ';c=&b'
+            #可能覆盖没条件的pub文件
+            self.pub_fn = self.q.question.Q_name + '-c.pub'
+        self.desc = 'n23&y'
+        self.base = 'base1'
+
+    def init_include(self):
+        #定义include命令
+        self.include = '*include ' + self.pub_fn
+        if self.q.condition:
+            self.include += ';b=' + self.q.question.condition.output
+        self.include += ';col(a)=' + str(self.q.question.col.col_start)
+        self.include += ';x=' + self.q.question.P_name
+        self.include += ';y=' + self.q.question.long_name
+
+
+class Question_P_Loop_Single(Question_P_Loop):
     def __init__(self, q):
         #用于循环的单选题目
         super(Question_P_Loop_Single, self).__init__(q, Question_P.QUESTION_OUTPUT_LOOP_SINGLE)
 
-        self.pub_fn = q.question.Q_name + '.pub'
-
         #准备pub文件内容
-        self.l = 'l &x'
-        if q.condition:
-            self.l += ';c=&b'
-            #可能覆盖没条件的pub文件
-            self.pub_fn = q.question.Q_name + '-c.pub'
-        self.desc = 'n23&y'
-        self.base = 'base1'
+        #pub文件头部
+        super(Question_P_Loop_Single, self).init_loop_head()
 
+        #col行
         self.col = ''
         col_width = q.question.col.col_width
         if col_width ==1:
             self.col = 'col a0'
         else:
-            self.col = 'fld ca0:' + col_wdith
+            self.col = 'fld ca0:' + col_width
 
-        #选项
+        #选项, 和在prg文件一样
         super(Question_P_Loop_Single, self).init_single_options()
-        #print('test', self.options)
-        
+
+        #尾部
         self.n03 = 'n03;nosort'
         self.tail = 'tots'
 
         #include命令
-        self.include = '*include ' + self.pub_fn
-        if q.condition:
-            self.include += ';b=' + q.question.condition.output
-        self.include += ';col(a)=' + str(q.question.col.col_start)
-        self.include += ';x=' + q.question.P_name
-        self.include += ';y=' + q.question.long_name
+        super(Question_P_Loop_Single, self).init_include()
 
     def format(self):
         #构造pub文件
-        lines = []
-        lines.append(self.l)
-        lines.append(self.desc)
-        lines.append(self.base)
-        lines.append(self.col)
-        lines += self.options
-        lines.append(self.n03)
-        lines.append(self.tail)
-
-        write_lines(self.pub_fn, lines)
+        self.pub_lines = []
+        self.pub_lines.append(self.l)
+        self.pub_lines.append(self.desc)
+        self.pub_lines.append(self.base)
+        self.pub_lines.append(self.col)
+        self.pub_lines += self.options
+        self.pub_lines.append(self.n03)
+        self.pub_lines.append(self.tail)
 
         #axe文件内容
         self.outputs = []
         self.outputs.append(self.include)
 
-class Question_P_Loop_Multi(Question_P):
+class Question_P_Loop_Multi(Question_P_Loop):
     def __init__(self, q):
         #用于循环的多选题目
         super(Question_P_Loop_Multi, self).__init__(q, Question_P.QUESTION_OUTPUT_LOOP_MULTI)
@@ -242,45 +276,34 @@ class Question_P_Loop_Multi(Question_P):
         self.pub_fn = q.question.Q_name + '.pub'
 
         #准备pub文件内容
-        self.l = 'l &x'
-        if q.condition:
-            self.l += ';c=&b'
-            #可能覆盖没条件的pub文件
-            self.pub_fn = q.question.Q_name + '-c.pub'
-        self.desc = 'n23&y'
-        self.base = 'base1'
+        #头部
+        super(Question_P_Loop_Multi, self).init_loop_head()
 
         #选项
         super(Question_P_Loop_Multi, self).init_multi_options()
 
+        #尾部
         self.n03 = 'n03;nosort'
         self.tail = 'totm'
 
         #只包括include文件
-        self.include = '*include ' + self.pub_fn
-        if q.condition:
-            self.include += ';b=' + q.question.condition.output
-        self.include += ';col(a)=' + str(q.question.col.col_start)
-        self.include += ';x=' + q.question.P_name
-        self.include += ';y=' + q.question.long_name
+        super(Question_P_Loop_Multi, self).init_include()
 
     def format(self):
         #构造pub文件
-        lines = []
-        lines.append(self.l)
-        lines.append(self.desc)
-        lines.append(self.base)
-        lines += self.options
-        lines.append(self.n03)
-        lines.append(self.tail)
-
-        write_lines(self.pub_fn, lines)
+        self.pub_lines = []
+        self.pub_lines.append(self.l)
+        self.pub_lines.append(self.desc)
+        self.pub_lines.append(self.base)
+        self.pub_lines += self.options
+        self.pub_lines.append(self.n03)
+        self.pub_lines.append(self.tail)
 
         #axe轴文件
         self.outputs = []
         self.outputs.append(self.include)
 
-class Question_P_Loop_Number(Question_P):
+class Question_P_Loop_Number(Question_P_Loop):
     def __init__(self, q):
         #用于循环的多选题目
         super(Question_P_Loop_Number, self).__init__(q, Question_P.QUESTION_OUTPUT_LOOP_NUMBER)
@@ -288,14 +311,9 @@ class Question_P_Loop_Number(Question_P):
         self.pub_fn = q.question.Q_name + '.pub'
 
         #准备pub文件内容
-        self.l = 'l &x'
-        if q.condition:
-            self.l += ';c=&b'
-            #可能覆盖没条件的pub文件
-            self.pub_fn = q.question.Q_name + '-c.pub'
-        self.desc = 'n23&y'
-        self.base = 'base1'
-
+        #头部
+        super(Question_P_Loop_Number, self).init_loop_head()
+        
         self.val = ''
         col_width = q.question.col.col_width
         if col_width == 1:
@@ -307,26 +325,19 @@ class Question_P_Loop_Number(Question_P):
         self.tail = 'totm'
 
         #只包括include文件
-        self.include = '*include ' + self.pub_fn
-        if q.condition:
-            self.include += ';b=' + q.question.condition.output
-        self.include += ';col(a)=' + str(q.question.col.col_start)
-        self.include += ';x=' + q.question.P_name
-        self.include += ';y=' + q.question.long_name
+        super(Question_P_Loop_Number, self).init_include()
 
     def format(self):
         #构造pub文件
-        lines = []
-        lines.append(self.l)
-        lines.append(self.desc)
-        lines.append(self.base)
-        lines.append(self.val)
-        lines.append(self.n03)
-        lines.append(self.tail)
+        self.pub_lines = []
+        self.pub_lines.append(self.l)
+        self.pub_lines.append(self.desc)
+        self.pub_lines.append(self.base)
+        self.pub_lines.append(self.val)
+        self.pub_lines.append(self.n03)
+        self.pub_lines.append(self.tail)
 
-        write_lines(self.pub_fn, lines)
-
-        #axe轴文件
+        #axe轴文件, include命令
         self.outputs = []
         self.outputs.append(self.include)
 
@@ -423,11 +434,10 @@ class Question_P_Grid_Multi(Question_P_Grid):
 
     def format(self):
         #pub文件
-        lines = []
-        lines += self.options
-        lines.append(self.n03)
-        lines.append(self.tail)
-        write_lines(self.pub_fn, lines)
+        self.pub_lines = []
+        self.pub_lines += self.options
+        self.pub_lines.append(self.n03)
+        self.pub_lines.append(self.tail)
 
         #axe文件
         self.outputs = []

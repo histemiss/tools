@@ -187,7 +187,6 @@ class Sentense_cond(Sentense):
             if len(vs) > 1:
                 o_out = []
                 for i in vs:
-                    i_start = col_start + int(i) -1
                     i_out = 'c' + str(col_start) + '.\'1\''
                     o_out.append(i_out)
                 output = '.and.'.join(o_out)
@@ -227,6 +226,8 @@ class Sentense_cond(Sentense):
         return output
 
     def cond_col_expr(self, c):
+        #使用Q的表达式作为过滤条件
+
         #去掉头尾的空格
         r = re.compile('(\A\s*)|(\s*\Z)')
         c = r.sub('', c)
@@ -517,117 +518,127 @@ class Question(object):
                 for c in range(len(qs)):
                     qs[c].question.P_name += '_' + str(c+1)
 
-def parse_file(f):
-    #重值全局变量
-    Question.reset_all()
-    Question_P.all_ques = []
-
-    #记录当前问题
-    q = None
-    expects = ( Sentense.SENTENSE_QUESTION, )
-    #行号
-    l = 0
-    while True:
-        s = f.readline()
-        if not s :
-            break 
-
-        s = s.decode('gbk')
-
-        l += 1
-
-        #过滤掉空行
-        r = re.compile('\s*')
-        if len(r.sub('', s)) == 0:
-            continue
-
-        #print('sentense: %s' % s)
-        s = parse_sentense(s, l)
-
-        if s.type == Sentense.SENTENSE_BLACK:
-            continue
-        if not s.type in expects:
-            print("解析失败, 获取%d, 期望是:%s" % (s.type,str(expects)))
-            raise None
-        
-        if s.type == Sentense.SENTENSE_QUESTION :
-            #当前行是问题, 前一个问题结束
-            if q:
-                q.add_question()
-
-            q = Question()
-            #检查问题类型
-            q.question = s
-            #下一行可能是新的问题，也可能是条件,可可能是选项
-            expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_CONDITION, Sentense.SENTENSE_OPTION)
-        elif s.type == Sentense.SENTENSE_CONDITION:
-            q.condition = s
-            #条件行下面必须有选项???
-            expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_OPTION)
-        elif s.type == Sentense.SENTENSE_OPTION:
-            expects = (Sentense.SENTENSE_OPTION, Sentense.SENTENSE_QUESTION)
-            q.options.append(s)
-        elif s.type == Sentense.SENTENSE_BLACK:
-            #忽略的行??
-            expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_CONDITION, Sentense.SENTENSE_OPTION)
-
-        s.ques = q
-        q.sentenses.append(s)
-
-    if q:
-        q.add_question()
-
-    #print(Question.ques_dict)
-
-    #处理过滤条件
-    for i in Question.all_ques:
-        if i.condition:
-            i.condition.parse_condition()
-
-    #处理循环的题目
-    Question.check_loop()
-
-    #遍历所有的var的问题, 生成prg的问题
-    for q in Question.all_ques:
-        qp = None
-        t = q.question.type_ques
-        if q.loop_state == 0 :
-            if t == Sentense_ques.QUESTION_SINGLE:
-                qp = Question_P_Single(q)
-            elif t == Sentense_ques.QUESTION_MULTI:
-                qp = Question_P_Multi(q)
-            else:
-                qp = Question_P_Number(q)
-            Question_P.all_ques.append(qp)
-        elif q.loop_state == 1:
-            qs = Question.Q_ques_dict[q.question.Q_name]
-            for q1 in qs:
+    @staticmethod
+    def parse_file(f):
+        #重值全局变量
+        Question.reset_all()
+        Question_P.all_ques = []
+    
+        #记录当前问题
+        q = None
+        expects = ( Sentense.SENTENSE_QUESTION, )
+        #行号
+        l = 0
+        while True:
+            s = f.readline()
+            if not s :
+                break 
+    
+            s = s.decode('gbk')
+    
+            l += 1
+    
+            #过滤掉空行
+            r = re.compile('\s*')
+            if len(r.sub('', s)) == 0:
+                continue
+    
+            #print('sentense: %s' % s)
+            s = parse_sentense(s, l)
+    
+            if s.type == Sentense.SENTENSE_BLACK:
+                continue
+            if not s.type in expects:
+                print("解析失败, 获取%d, 期望是:%s" % (s.type,str(expects)))
+                raise None
+            
+            if s.type == Sentense.SENTENSE_QUESTION :
+                #当前行是问题, 前一个问题结束
+                if q:
+                    q.var_end = l
+                    q.add_question()
+    
+                q = Question()
+                q.var_start = l
+                #检查问题类型
+                q.question = s
+                #下一行可能是新的问题，也可能是条件,可可能是选项
+                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_CONDITION, Sentense.SENTENSE_OPTION)
+            elif s.type == Sentense.SENTENSE_CONDITION:
+                q.condition = s
+                #条件行下面必须有选项???
+                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_OPTION)
+            elif s.type == Sentense.SENTENSE_OPTION:
+                expects = (Sentense.SENTENSE_OPTION, Sentense.SENTENSE_QUESTION)
+                q.options.append(s)
+            elif s.type == Sentense.SENTENSE_BLACK:
+                #忽略的行??
+                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_CONDITION, Sentense.SENTENSE_OPTION)
+    
+            s.ques = q
+            q.sentenses.append(s)
+    
+        if q:
+            q.add_question()
+    
+        #print(Question.ques_dict)
+    
+        #处理过滤条件
+        for i in Question.all_ques:
+            if i.condition:
+                i.condition.parse_condition()
+    
+        #处理循环的题目
+        Question.check_loop()
+    
+        #遍历所有的var的问题, 生成prg的问题
+        for q in Question.all_ques:
+            qp = None
+            t = q.question.type_ques
+            if q.loop_state == 0 :
                 if t == Sentense_ques.QUESTION_SINGLE:
-                    qp = Question_P_Loop_Single(q1)
+                    qp = Question_P_Single(q)
                 elif t == Sentense_ques.QUESTION_MULTI:
-                    qp = Question_P_Loop_Multi(q1)
+                    qp = Question_P_Multi(q)
                 else:
-                    qp = Question_P_Loop_Number(q1)
+                    qp = Question_P_Number(q)
                 Question_P.all_ques.append(qp)
+            elif q.loop_state == 1:
+                qs = Question.Q_ques_dict[q.question.Q_name]
+                for q1 in qs:
+                    if t == Sentense_ques.QUESTION_SINGLE:
+                        qp = Question_P_Loop_Single(q1)
+                    elif t == Sentense_ques.QUESTION_MULTI:
+                        qp = Question_P_Loop_Multi(q1)
+                    else:
+                        qp = Question_P_Loop_Number(q1)
+                    Question_P.all_ques.append(qp)
+    
+                #添加grid问题
+                if t == Sentense_ques.QUESTION_SINGLE:
+                    qp = Question_P_Grid_Single(q)
+                elif t == Sentense_ques.QUESTION_MULTI:
+                    qp = Question_P_Grid_Multi(q)
+                else:
+                    qp = Question_P_Grid_Number(q)
+                Question_P.all_ques.append(qp)
+    
+    
+        for q in Question_P.all_ques:
+            q.format()
+                    
+        return Question_P.all_ques
 
-            #添加grid问题
-            if t == Sentense_ques.QUESTION_SINGLE:
-                qp = Question_P_Grid_Single(q)
-            elif t == Sentense_ques.QUESTION_MULTI:
-                qp = Question_P_Grid_Multi(q)
-            else:
-                qp = Question_P_Grid_Number(q)
-            Question_P.all_ques.append(qp)
-
-
-    for q in Question_P.all_ques:
-        q.format()
-                
-    return Question_P.all_ques
-
+    @staticmethod
+    def open_var(fn):
+        f = read_open(fn)
+        qs = Question.parse_file(f)
+        f.close()
+        return qs
+        
 def axe_file(var_file):
     f = read_open(sys.argv[1])
-    qs = parse_file(f)
+    qs = Question.parse_file(f)
     f.close()
 
     #print '\n'.join([str(i) for i in qs])
@@ -739,7 +750,8 @@ def alias_qt_file():
 if __name__ == '__main__' :
     if len(sys.argv) < 2:
         print("Usage: %s <file-name>" % sys.argv[0])
-    if len(sys.argv) >=3 :
+        exit(0)
+    if len(sys.argv) >2 :
         output_dir = sys.argv[2]
         
     axe_file(sys.argv[1])
