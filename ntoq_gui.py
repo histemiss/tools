@@ -108,6 +108,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
         
         return ''
 
+
 #设置BASE数据的窗口
 class BaseModDialog(wx.Dialog):
     def __init__(self, *args, **kwds):
@@ -182,6 +183,7 @@ class BaseModDialog(wx.Dialog):
 
 
 #操作base的窗口
+
 class BaseDialog(wx.Dialog):
     def __init__(self, *args, **kwds):
         # begin wxGlade: BaseDialog.__init__
@@ -299,6 +301,8 @@ class MainFrame(wx.Frame):
         self.gt = QuesGrid()
         #表示当前解析的数据是否保存
         self.dirty = False
+        #保存目录
+        self.outp_dir = ''
         #base数据库
         self.base_dict = {}
 
@@ -421,8 +425,13 @@ class MainFrame(wx.Frame):
 
         dia_file = wx.FileDialog(None, "选择VAR文件", os.getcwd(), "", "VAR文件 (*.VAR)|*.VAR", wx.OPEN)
         if dia_file.ShowModal() == wx.ID_OK:
+            #之前的配置无效
             self.dirty = False
+            self.outp_dir = ''
+
+            #解析文件
             qs = ques.Question.open_var(dia_file.GetPath())
+            #更新grid
             self.gt.ResetQues(qs)
             
         

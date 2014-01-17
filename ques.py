@@ -635,117 +635,165 @@ class Question(object):
         qs = Question.parse_file(f)
         f.close()
         return qs
+    
+    @staticmethod
+    def save_var(outp_dir, qs, base):
+        #更新全局参数
+        output_dir = outp_dir
+
+        #生成axe文件
+        axe_f = write_open(output_dir + '/axe.prg')
+
+        for q in qs:
+            axe_f.write((CRLF.join(q.outputs)).encode('gbk'))
+            axe_f.write(CRLF.encode('gbk'))
+            axe_f.write(CRLF.encode('gbk'))
+
+        axe_f.close()
         
-def axe_file(var_file):
-    f = read_open(sys.argv[1])
-    qs = Question.parse_file(f)
-    f.close()
-
-    #print '\n'.join([str(i) for i in qs])
-
-    #生成axe文件
-    axe_f = write_open(output_dir + '/axe.prg')
-    for q in qs:
-        axe_f.write((CRLF.join(q.outputs)).encode('gbk'))
-        axe_f.write(CRLF.encode('gbk'))
-        axe_f.write(CRLF.encode('gbk'))
-    axe_f.close()
+        #tab.prg文件
+        lines = []
+        for qp in qs: 
+            o = 'tab '
+            if qp.is_grid():
+                o += qp.q.question.Q_name + ' grid'
+            elif qp.is_tops():
+                o += qp.q.question.Q_name + ' tops'
+            elif qp.is_mean():
+                o += qp.q.question.Q_name + ' mean'
+            else:
+                o += qp.q.question.P_name + ' ban1'
     
-    #tab.prg文件
-    lines = []
-    for q in Question.all_ques: 
-        o = ''
-        if q.loop_state == 0:
-            o = 'tab ' + q.question.P_name + ' ban1'
-        elif q.loop_state != 1:
-            #对于循环,只有第一个文件才输出
-            pass
-        else:
-            q_name = q.question.Q_name
-            #遍历循环题目
-            l_qs = Question.Q_ques_dict[q_name]
-            for l in l_qs:
-                o = 'tab ' + l.question.P_name +' ban1'
-                lines.append(o)
-            #grid tab
-            o = 'tab ' + q_name + ' grid'
             lines.append(o)
-
-    write_lines('tab.prg', lines)
-
-def bat_file(var_file):
-    #根据VAR文件名构造DAT文件名
-    DATA_F = os.path.split(var_file)[-1]
-    r = re.compile('\.var\Z', re.I)
-    DATA_F = r.sub('.dat', DATA_F)
-
-    lines = []
-    #1.bat文件
-    lines.append('@echo *include 1.prn;e=1 >dp.prn')
-    lines.append('call quantum dp.prn ' + DATA_F)
-    lines.append('call qout -p a.exp')
-    lines.append('call q2cda -p a.exp count.csv')
-
-    lines.append('')
-
-    lines.append('@echo *include 1.prn;e=2 >dp.prn')
-    lines.append('call quantum dp.prn ' + DATA_F)
-    lines.append('call qout -p a.exp')
-    lines.append('call q2cda -p a.exp col.csv')
-    lines.append('')
-    lines.append('call quclean -a -y')
-    lines.append('del a.exp')
-    lines.append('del *.bak')
-
-    write_lines('1.bat', lines)
-
-def prn_file():
-    lines = []
-    lines.append('struct;read=0;reclen=32000')
-    lines.append('ed')
-    lines.append('')
-    lines.append('/* ADEval')
-    lines.append('')
-    lines.append('/*most often user')
-    lines.append('')
-    lines.append('end')
-    lines.append('a;decp=2;dec=0;spechar=->;op=&e;side=40;pagwid=5000;paglen=300;indent=2;flush;nopage;nz;nosort;linesbef=0;linesaft=0;nopc;topc;notype;netsort;nzcol')
-    lines.append('ttl')
-    lines.append('ttl')
-    lines.append('#include tab.prg')
-    lines.append('#include axe.prg')
-    lines.append('#include col.prg')
-
-    write_lines('1.prn', lines)
-
-def prg_file():
-    lines = []
-    lines.append('l ban1')
-    lines.append('n10Total')
-
-    write_lines('col.prg', lines)
-
-def maxima_qt_file():
-    lines = []
-    lines.append('axes=12000')
-    lines.append('elms=14500')
-    lines.append('heap=1780000')
-    lines.append('namevars=13000')
-    lines.append('incs=11000')
-    lines.append('incheap=14000')
-    lines.append('coldefs=1250')
-    lines.append('textdefs=1200')
-    lines.append('punchdefs=1320')
-
-    write_lines('MAXIMA.QT', lines)
-
-def alias_qt_file():
-    lines = []
-    lines.append(u'base1 N10基数：有效被访者;nocol;noexport')
-    lines.append(u'tots n05合计;nocol;nosort;nonz')
-    lines.append(u'totm n01合计;c=+;nocol;nosort;noexport;nonz')
     
-    write_lines('ALIAS.QT', lines)
+        write_lines('tab.prg', lines)
+
+    @staticmethod
+    def axe_file(var_file):
+        f = read_open(sys.argv[1])
+        qs = Question.parse_file(f)
+        f.close()
+    
+        #print '\n'.join([str(i) for i in qs])
+    
+        #生成axe文件
+        axe_f = write_open(output_dir + '/axe.prg')
+        for q in qs:
+            axe_f.write((CRLF.join(q.outputs)).encode('gbk'))
+            axe_f.write(CRLF.encode('gbk'))
+            axe_f.write(CRLF.encode('gbk'))
+        axe_f.close()
+        
+        #tab.prg文件
+        lines = []
+        for q in Question.all_ques: 
+            o = ''
+            if q.loop_state == 0:
+                o = 'tab ' + q.question.P_name + ' ban1'
+            elif q.loop_state != 1:
+                #对于循环,只有第一个文件才输出
+                pass
+            else:
+                q_name = q.question.Q_name
+                #遍历循环题目
+                l_qs = Question.Q_ques_dict[q_name]
+                for l in l_qs:
+                    o = 'tab ' + l.question.P_name +' ban1'
+                    lines.append(o)
+                #grid tab
+                o = 'tab ' + q_name + ' grid'
+                lines.append(o)
+    
+        write_lines('tab.prg', lines)
+
+    @staticmethod
+    def bat_file(var_file):
+        #根据VAR文件名构造DAT文件名
+        DATA_F = os.path.split(var_file)[-1]
+        r = re.compile('\.var\Z', re.I)
+        DATA_F = r.sub('.dat', DATA_F)
+    
+        lines = []
+        #1.bat文件
+        lines.append('@echo *include 1.prn;e=1 >dp.prn')
+        lines.append('call quantum dp.prn ' + DATA_F)
+        lines.append('call qout -p a.exp')
+        lines.append('call q2cda -p a.exp count.csv')
+    
+        lines.append('')
+    
+        lines.append('@echo *include 1.prn;e=2 >dp.prn')
+        lines.append('call quantum dp.prn ' + DATA_F)
+        lines.append('call qout -p a.exp')
+        lines.append('call q2cda -p a.exp col.csv')
+        lines.append('')
+        lines.append('call quclean -a -y')
+        lines.append('del a.exp')
+        lines.append('del *.bak')
+    
+        write_lines('1.bat', lines)
+    
+
+    @staticmethod
+    def prn_file():
+        lines = []
+        lines.append('struct;read=0;reclen=32000')
+        lines.append('ed')
+        lines.append('')
+        lines.append('/* ADEval')
+        lines.append('')
+        lines.append('/*most often user')
+        lines.append('')
+        lines.append('end')
+        lines.append('a;decp=2;dec=0;spechar=->;op=&e;side=40;pagwid=5000;paglen=300;indent=2;flush;nopage;nz;nosort;linesbef=0;linesaft=0;nopc;topc;notype;netsort;nzcol')
+        lines.append('ttl')
+        lines.append('ttl')
+        lines.append('#include tab.prg')
+        lines.append('#include axe.prg')
+        lines.append('#include col.prg')
+    
+        write_lines('1.prn', lines)
+    
+
+    @staticmethod
+    def prg_file():
+        lines = []
+        lines.append('l ban1')
+        lines.append('n10Total')
+    
+        write_lines('col.prg', lines)
+    
+
+    @staticmethod
+    def maxima_qt_file():
+        lines = []
+        lines.append('axes=12000')
+        lines.append('elms=14500')
+        lines.append('heap=1780000')
+        lines.append('namevars=13000')
+        lines.append('incs=11000')
+        lines.append('incheap=14000')
+        lines.append('coldefs=1250')
+        lines.append('textdefs=1200')
+        lines.append('punchdefs=1320')
+    
+        write_lines('MAXIMA.QT', lines)
+    
+
+    @staticmethod
+    def alias_qt_file(base_dict):
+        lines = []
+        for i in base_dict:
+            o = ("%s %s") % (i, base_dict[i])
+            lines.append(o)
+        
+        write_lines('ALIAS.QT', lines)
+
+    @staticmethod
+    def save_all(outp_dir, qs, base_dict):
+        Question.axe_file(outp_dir, qs)
+        Question.bat_file(
+    
 
 if __name__ == '__main__' :
     if len(sys.argv) < 2:
@@ -754,11 +802,11 @@ if __name__ == '__main__' :
     if len(sys.argv) >2 :
         output_dir = sys.argv[2]
         
-    axe_file(sys.argv[1])
-    bat_file(sys.argv[1])
-    prg_file()
-    prn_file()
-    maxima_qt_file()
-    alias_qt_file()
+    Question.axe_file(sys.argv[1])
+    Question.bat_file(sys.argv[1])
+    Question.prg_file()
+    Question.prn_file()
+    Question.maxima_qt_file()
+    Question.alias_qt_file()
 
 
