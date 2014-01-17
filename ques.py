@@ -5,35 +5,12 @@ import re
 import os
 import sys
 
-from ques_prg import *
+import pdb
 
-#global control variable
-#命令行第一个字符为空格,现在没有使用
-option_black = False
+from ques_prg import *
 
 #回车变量
 CRLF = '\n'
-
-#输出文件夹
-output_dir = '.'
-
-
-#辅助函数
-
-#读打开文件，不需要转义回车
-def write_open(fn):
-    f = open(fn, 'w')
-    return f
-
-def read_open(fn):
-    f = open(fn, 'r')
-    return f
-
-def write_lines(fn, lines):
-    f = open(output_dir + '/' + fn, 'w')
-    f.write((CRLF.join(lines)).encode('gbk'))
-    f.write(CRLF.encode('gbk'))
-    f.close()
 
 class Token(object) :
     #*SNG
@@ -170,7 +147,7 @@ class Sentense_cond(Sentense):
         vs = vs[1:]
         
         #查找q对应的题目
-        q = Question.ques_dict[q]
+        q = self.proj.ques_v_dict[q]
         if not q:
             print("找不到判断条件的题号", c)
             raise None
@@ -301,7 +278,10 @@ class Sentense_cond(Sentense):
             o_out.append('.and.'.join(a_out))
         return '.or.'.join(o_out)
             
-    def parse_condition(self):
+    def parse_condition(self, proj):
+        #proj提供接口, 根据var名字查找问题
+        self.proj = proj
+
         #FI ( XXXX ) :
         #先分离':'前面的条件
         cond_str = self.string.split(':')[0]
@@ -437,51 +417,69 @@ def parse_sentense(s, l = -1):
     return o
 
 class Question(object):
-    #全局变量
-    ques_dict = {}
-    all_ques = []
-    Q_ques_dict = {}
-    
 
-    def __init__(self):
+    def __init__(self, proj):
         self.sentenses = []
         #member vars use Sentense
         self.question = None
         self.condition = None
         self.options = []
+        
+        self.proj = proj
 
         #是否循环, 0表示没有循环, 1表示循环的第一个,2表示循环最后一个,3表示其他
         self.loop_state = 0
 
-
     def __str__(self):
         return '%s => %s\n' % ( Sentense_ques.question_type_names[self.question.type_ques],self.sentenses[0].string)
 
-    def add_question(self):
+    def get_ques_q(self):
+        #获取处于一个循环的题目
+        return self.proj.ques_q_dict[self.question.Q_name]
+
+class Project(object):
+    #全局变量
+    def __init__(self, var_fn):
+        #所有的prg问题
+        self.all_ques_prg = []
+        #所有的q问题
+        self.all_ques_q = []
+        #q问题,根据var名字索引,在过滤条件中使用
+        self.ques_v_dict = {}
+        #所有的q文件,使用q名字索引,判断循环使用
+        self.ques_q_dict = {}
+
+        #所有的base数据
+        self.base_dict = {}
+
+        #var文件
+        self.var_fn = var_fn
+
+        #数据是否需要修改, 解析之后,修改之后都需要保存
+        self.dirty = True
+
+        #保存数据
+        self.outp_dir = ''
+
+        self.parse_file()
+
+    def add_question(self, q):
         #对于单选题, 如果没有选项,遍为number问题
-        if self.question.type_ques == Sentense_ques.QUESTION_SINGLE and len(self.options) == 0:
-            self.question.type_ques = Sentense_ques.QUESTION_NUMBER
+        if q.question.type_ques == Sentense_ques.QUESTION_SINGLE and len(q.options) == 0:
+            q.question.type_ques = Sentense_ques.QUESTION_NUMBER
 
         #把问题添加到dict和question中
-        Question.all_ques.append(self)
-        Question.ques_dict[self.question.V_name] = self
-        if not self.question.Q_name in Question.Q_ques_dict:
-            Question.Q_ques_dict[self.question.Q_name] = []
-        Question.Q_ques_dict[self.question.Q_name].append(self)
+        self.all_ques_q.append(q)
+        self.ques_v_dict[q.question.V_name] = q
+        if not q.question.Q_name in self.ques_q_dict:
+            self.ques_q_dict[q.question.Q_name] = []
+        self.ques_q_dict[q.question.Q_name].append(q)
         return 
 
-    @staticmethod
-    def reset_all():
-        #清空字典的question数组
-        Question.ques_dict = {}
-        Question.all_ques = []
-        Question.Q_ques_dict = {}
-
-
-    @staticmethod
-    def check_loop():
-        for i in Question.Q_ques_dict:
-            qs = Question.Q_ques_dict[i]
+    def check_loop(self):
+        #检查问题是否循环
+        for i in self.ques_q_dict:
+            qs = self.ques_q_dict[i]
             if len(qs) == 1:
                 continue
 
@@ -518,24 +516,22 @@ class Question(object):
                 for c in range(len(qs)):
                     qs[c].question.P_name += '_' + str(c+1)
 
-    @staticmethod
-    def parse_file(f):
-        #重值全局变量
-        Question.reset_all()
-        Question_P.all_ques = []
+    def parse_file(self):
+
+        f = self.read_open(self.var_fn)
     
         #记录当前问题
         q = None
         expects = ( Sentense.SENTENSE_QUESTION, )
         #行号
         l = 0
+
         while True:
             s = f.readline()
             if not s :
                 break 
-    
+
             s = s.decode('gbk')
-    
             l += 1
     
             #过滤掉空行
@@ -556,10 +552,11 @@ class Question(object):
                 #当前行是问题, 前一个问题结束
                 if q:
                     q.var_end = l
-                    q.add_question()
+                    self.add_question(q)
     
-                q = Question()
+                q = Question(self)
                 q.var_start = l
+
                 #检查问题类型
                 q.question = s
                 #下一行可能是新的问题，也可能是条件,可可能是选项
@@ -579,20 +576,19 @@ class Question(object):
             q.sentenses.append(s)
     
         if q:
-            q.add_question()
-    
-        #print(Question.ques_dict)
+            q.var_end = l
+            self.add_question(q)
     
         #处理过滤条件
-        for i in Question.all_ques:
+        for i in self.all_ques_q:
             if i.condition:
-                i.condition.parse_condition()
+                i.condition.parse_condition(self)
     
         #处理循环的题目
-        Question.check_loop()
+        self.check_loop()
     
         #遍历所有的var的问题, 生成prg的问题
-        for q in Question.all_ques:
+        for q in self.all_ques_q:
             qp = None
             t = q.question.type_ques
             if q.loop_state == 0 :
@@ -602,9 +598,9 @@ class Question(object):
                     qp = Question_P_Multi(q)
                 else:
                     qp = Question_P_Number(q)
-                Question_P.all_ques.append(qp)
+                self.all_ques_prg.append(qp)
             elif q.loop_state == 1:
-                qs = Question.Q_ques_dict[q.question.Q_name]
+                qs = self.ques_q_dict[q.question.Q_name]
                 for q1 in qs:
                     if t == Sentense_ques.QUESTION_SINGLE:
                         qp = Question_P_Loop_Single(q1)
@@ -612,7 +608,7 @@ class Question(object):
                         qp = Question_P_Loop_Multi(q1)
                     else:
                         qp = Question_P_Loop_Number(q1)
-                    Question_P.all_ques.append(qp)
+                    self.all_ques_prg.append(qp)
     
                 #添加grid问题
                 if t == Sentense_ques.QUESTION_SINGLE:
@@ -621,30 +617,24 @@ class Question(object):
                     qp = Question_P_Grid_Multi(q)
                 else:
                     qp = Question_P_Grid_Number(q)
-                Question_P.all_ques.append(qp)
-    
-    
-        for q in Question_P.all_ques:
+                self.all_ques_prg.append(qp)
+
+        #转化后的问题
+        for q in self.all_ques_prg:
             q.format()
                     
-        return Question_P.all_ques
-
-    @staticmethod
-    def open_var(fn):
-        f = read_open(fn)
-        qs = Question.parse_file(f)
-        f.close()
-        return qs
-    
-    @staticmethod
-    def save_var(outp_dir, qs, base):
+    def axe_tab_file(self, outp_dir):
         #更新全局参数
-        output_dir = outp_dir
+        self.outp_dir = outp_dir
 
         #生成axe文件
-        axe_f = write_open(output_dir + '/axe.prg')
+        axe_f = self.write_open(self.outp_dir + '/axe.prg')
 
-        for q in qs:
+        for q in self.all_ques_prg:
+            #保存pub文件
+            if len(q.pub_fn) != 0:
+                self.write_lines(q.pub_fn, q.pub_lines)
+
             axe_f.write((CRLF.join(q.outputs)).encode('gbk'))
             axe_f.write(CRLF.encode('gbk'))
             axe_f.write(CRLF.encode('gbk'))
@@ -653,11 +643,11 @@ class Question(object):
         
         #tab.prg文件
         lines = []
-        for qp in qs: 
+        for qp in self.all_ques_prg: 
             o = 'tab '
             if qp.is_grid():
                 o += qp.q.question.Q_name + ' grid'
-            elif qp.is_tops():
+            elif qp.is_top2():
                 o += qp.q.question.Q_name + ' tops'
             elif qp.is_mean():
                 o += qp.q.question.Q_name + ' mean'
@@ -666,50 +656,12 @@ class Question(object):
     
             lines.append(o)
     
-        write_lines('tab.prg', lines)
+        self.write_lines('tab.prg', lines)
 
-    @staticmethod
-    def axe_file(var_file):
-        f = read_open(sys.argv[1])
-        qs = Question.parse_file(f)
-        f.close()
-    
-        #print '\n'.join([str(i) for i in qs])
-    
-        #生成axe文件
-        axe_f = write_open(output_dir + '/axe.prg')
-        for q in qs:
-            axe_f.write((CRLF.join(q.outputs)).encode('gbk'))
-            axe_f.write(CRLF.encode('gbk'))
-            axe_f.write(CRLF.encode('gbk'))
-        axe_f.close()
-        
-        #tab.prg文件
-        lines = []
-        for q in Question.all_ques: 
-            o = ''
-            if q.loop_state == 0:
-                o = 'tab ' + q.question.P_name + ' ban1'
-            elif q.loop_state != 1:
-                #对于循环,只有第一个文件才输出
-                pass
-            else:
-                q_name = q.question.Q_name
-                #遍历循环题目
-                l_qs = Question.Q_ques_dict[q_name]
-                for l in l_qs:
-                    o = 'tab ' + l.question.P_name +' ban1'
-                    lines.append(o)
-                #grid tab
-                o = 'tab ' + q_name + ' grid'
-                lines.append(o)
-    
-        write_lines('tab.prg', lines)
-
-    @staticmethod
-    def bat_file(var_file):
+    def bat_file(self):
         #根据VAR文件名构造DAT文件名
-        DATA_F = os.path.split(var_file)[-1]
+        
+        DATA_F = os.path.split(self.var_fn)[-1]
         r = re.compile('\.var\Z', re.I)
         DATA_F = r.sub('.dat', DATA_F)
     
@@ -731,11 +683,9 @@ class Question(object):
         lines.append('del a.exp')
         lines.append('del *.bak')
     
-        write_lines('1.bat', lines)
+        self.write_lines('1.bat', lines)
     
-
-    @staticmethod
-    def prn_file():
+    def prn_file(self):
         lines = []
         lines.append('struct;read=0;reclen=32000')
         lines.append('ed')
@@ -752,20 +702,17 @@ class Question(object):
         lines.append('#include axe.prg')
         lines.append('#include col.prg')
     
-        write_lines('1.prn', lines)
+        self.write_lines('1.prn', lines)
     
 
-    @staticmethod
-    def prg_file():
+    def prg_file(self):
         lines = []
         lines.append('l ban1')
         lines.append('n10Total')
     
-        write_lines('col.prg', lines)
+        self.write_lines('col.prg', lines)
     
-
-    @staticmethod
-    def maxima_qt_file():
+    def maxima_qt_file(self):
         lines = []
         lines.append('axes=12000')
         lines.append('elms=14500')
@@ -777,36 +724,56 @@ class Question(object):
         lines.append('textdefs=1200')
         lines.append('punchdefs=1320')
     
-        write_lines('MAXIMA.QT', lines)
+        self.write_lines('MAXIMA.QT', lines)
     
 
-    @staticmethod
-    def alias_qt_file(base_dict):
+    def alias_qt_file(self):
         lines = []
-        for i in base_dict:
+        for i in self.base_dict:
             o = ("%s %s") % (i, base_dict[i])
             lines.append(o)
         
-        write_lines('ALIAS.QT', lines)
+        self.write_lines('ALIAS.QT', lines)
 
-    @staticmethod
-    def save_all(outp_dir, qs, base_dict):
-        Question.axe_file(outp_dir, qs)
-        Question.bat_file(
+    def save_prg(self, outp_dir):
+        self.axe_tab_file(outp_dir)
+        self.bat_file()
+        self.prn_file()
+        self.prg_file()
+        self.maxima_qt_file()
+        self.alias_qt_file()
+
+        self.dirty = False
+    
+    #读打开文件，不需要转义回车
+    def write_open(self, fn):
+        f = open(fn, 'w')
+        return f
+    
+    def read_open(self, fn):
+        f = open(fn, 'r')
+        return f
+    
+    def write_lines(self, fn, lines):
+        if len(self.outp_dir) == 0:
+            return 
+        
+        f = open(self.outp_dir + '/' + fn, 'w')
+        f.write((CRLF.join(lines)).encode('gbk'))
+        f.write(CRLF.encode('gbk'))
+        f.close()
     
 
 if __name__ == '__main__' :
     if len(sys.argv) < 2:
         print("Usage: %s <file-name>" % sys.argv[0])
         exit(0)
+    
+    outp_dir = '.'
     if len(sys.argv) >2 :
-        output_dir = sys.argv[2]
+        outp_dir = sys.argv[2]
         
-    Question.axe_file(sys.argv[1])
-    Question.bat_file(sys.argv[1])
-    Question.prg_file()
-    Question.prn_file()
-    Question.maxima_qt_file()
-    Question.alias_qt_file()
+    print(sys.argv[1], outp_dir)
 
-
+    proj = Project(sys.argv[1])
+    proj.save_prg(outp_dir)

@@ -13,7 +13,7 @@ import gettext
 
 # begin wxGlade: extracode
 # end wxGlade
-import ques
+from ques import *
 import os
 import pdb
 
@@ -192,11 +192,11 @@ class BaseDialog(wx.Dialog):
 
         self.list_ctrl_base = wx.ListCtrl(self, wx.ID_ANY, style=wx.LC_REPORT | wx.RAISED_BORDER|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES)
 
+        self.button_close = wx.Button(self, wx.ID_ANY, ("关闭"))
         self.button_add = wx.Button(self, wx.ID_ANY, (u"添加"))
         self.button_del = wx.Button(self, wx.ID_ANY, (u"删除"))
         self.button_mod = wx.Button(self, wx.ID_ANY, (u"修改"))
         self.button_read = wx.Button(self, wx.ID_ANY, (u"导入"))
-        self.button_base_1 = wx.Button(self, wx.ID_ANY, ("button_1"))
         self.button_base_2 = wx.Button(self, wx.ID_ANY, ("button_1"))
 
         self.__set_properties()
@@ -204,25 +204,42 @@ class BaseDialog(wx.Dialog):
         # end wxGlade
 
         #操作数据, 参数base中是字典, 在外部设置
-        self.base_dict = self.GetParent().base_dict
+        self.base_dict = self.GetParent().proj.base_dict
         self.list_ctrl_base.InsertColumn(0, '标签')
         self.list_ctrl_base.InsertColumn(1, '文本')
         self.list_ctrl_base.SetColumnWidth(1, wx.LIST_AUTOSIZE)
+        for i in self.base_dict:
+            self.list_ctrl_base.Append((i, self.base_dict[i]))
 
+        self.Bind(wx.EVT_BUTTON, self.OnClose, self.button_close)
         self.Bind(wx.EVT_BUTTON, self.OnAdd, self.button_add)
         self.Bind(wx.EVT_BUTTON, self.OnDel, self.button_del)
         self.Bind(wx.EVT_BUTTON, self.OnMod, self.button_mod)
 
+        #选择模式
+        self.sel = False
+
+    def set_select(self):
+        #如果是选择base时,隐藏一些button
+        #而且button_add按钮功能改变
+        self.sel = True
+        self.button_del.Hide()
+        self.button_mod.Hide()
+        self.button_read.Hide()
+        self.button_base_2.Hide()
+        self.button_add.SetLabel('确定')
+        self.button_close.SetLabel('取消')
+        
     def __set_properties(self):
         # begin wxGlade: BaseDialog.__set_properties
         self.SetTitle((u"操作BASE数据"))
         self.SetSize((500, 600))
         self.SetBackgroundColour(wx.Colour(255, 255, 255))
+        self.button_close.SetMinSize((100, 50))
         self.button_add.SetMinSize((100, 50))
         self.button_del.SetMinSize((100, 50))
         self.button_mod.SetMinSize((100, 50))
         self.button_read.SetMinSize((100, 50))
-        self.button_base_1.SetMinSize((100, 50))
         self.button_base_2.SetMinSize((100, 50))
         # end wxGlade
 
@@ -232,12 +249,12 @@ class BaseDialog(wx.Dialog):
         sizer_right = wx.BoxSizer(wx.VERTICAL)
         sizer_base.Add(self.list_ctrl_base, 1, wx.ALL | wx.EXPAND, 5)
         sizer_right.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
+        sizer_right.Add(self.button_close, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
         sizer_right.Add(self.button_add, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
         sizer_right.Add(self.button_del, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
         sizer_right.Add(self.button_mod, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.FIXED_MINSIZE, 5)
         sizer_right.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
         sizer_right.Add(self.button_read, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.FIXED_MINSIZE, 5)
-        sizer_right.Add(self.button_base_1, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
         sizer_right.Add(self.button_base_2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 5)
         sizer_right.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
         sizer_base.Add(sizer_right, 0, wx.EXPAND, 0)
@@ -246,6 +263,15 @@ class BaseDialog(wx.Dialog):
         # end wxGlade
 
     def OnAdd(self, event):
+        if self.sel:
+            #选择模式
+            sel = self.list_ctrl_base.GetFirstSelected()
+            if sel == -1:
+                wx.MessageBox("请先在左边表格中选中一个BASE", style=wx.ID_OK)
+                return
+            self.EndModal(sel)
+            return
+
         #增加base
         base_dlg = BaseModDialog(self)
         res = base_dlg.ShowModal()
@@ -293,19 +319,20 @@ class BaseDialog(wx.Dialog):
             self.list_ctrl_base.Select(sel)
             self.list_ctrl_base.Refresh(sel)
 
+    def OnClose(self, event):
+        #关闭按钮
+        self.EndModal(-1)
+
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
 
         #创建gridtable
         self.gt = QuesGrid()
-        #表示当前解析的数据是否保存
-        self.dirty = False
-        #保存目录
-        self.outp_dir = ''
-        #base数据库
-        self.base_dict = {}
-
+        
+        #当前转化的数据
+        self.proj = None
+        
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
@@ -418,7 +445,8 @@ class MainFrame(wx.Frame):
         # end wxGlade
 
     def OnOpen(self, event):
-        if self.dirty :
+
+        if self.proj is not None and self.proj.dirty :
             res = wx.MessageBox("当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES | wx.CANCEL)
             if res != wx.YES:
                 return
@@ -426,22 +454,38 @@ class MainFrame(wx.Frame):
         dia_file = wx.FileDialog(None, "选择VAR文件", os.getcwd(), "", "VAR文件 (*.VAR)|*.VAR", wx.OPEN)
         if dia_file.ShowModal() == wx.ID_OK:
             #之前的配置无效
-            self.dirty = False
-            self.outp_dir = ''
+            del self.proj
 
             #解析文件
-            qs = ques.Question.open_var(dia_file.GetPath())
+            self.proj = Project(dia_file.GetPath())
             #更新grid
-            self.gt.ResetQues(qs)
+            self.gt.ResetQues(self.proj.all_ques_prg)
             
         
     def OnSave(self, event):
+        if self.proj == None:
+            wx.MessageBox('还没有打开VAR文件', style=wx.ID_OK)
+            return 
+            
         prg_dir = wx.DirSelector("选择保存位置...")
         if prg_dir.strip():
-            #保存文件
-            pass
+            self.proj.save_prg(prg_dir)
           
     def OnBase(self, event):
+        #测试选择base操作
+        self.proj.base_dict = {'a':'abcdefg', 'h':'hijklmn', 'o':'opqrst'}
+        if len(self.proj.base_dict) == 0:
+            wx.MessageBox('没有base数据可选,请先创建', style=wx.ID_OK)
+            return 
+        dlg_base = BaseDialog(self)
+        dlg_base.set_select()
+        sel = dlg_base.ShowModal()
+        wx.MessageBox(str(sel), style=wx.ID_OK)
+        return 
+        
+        if not self.proj:
+            wx.MessageBox('还没有打开VAR文件', style=wx.ID_OK)
+            return 
         dlg_base = BaseDialog(self)
         dlg_base.ShowModal()
         

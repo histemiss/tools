@@ -28,6 +28,18 @@ class Question_P(object):
         'MEAN':[QUESTION_OUTPUT_MEAN_SINGLE, QUESTION_OUTPUT_MEAN_MULTI, QUESTION_OUTPUT_MEAN_NUMBER],
         }
 
+    def is_loop(self):
+        return isinstance(self, Question_P_Loop)
+
+    def is_grid(self):
+        return isinstance(self, Question_P_Grid)
+
+    def is_top2(self):
+        return isinstance(self, Question_P_Top2)
+
+    def is_mean(self):
+        return isinstance(self, Question_P_Mean)
+
     def features(self):
         #根据type计算属性
         o = []
@@ -351,7 +363,7 @@ class Question_P_Grid(Question_P):
 
         #xls文件中的列,而不是结果数据
         #获取循环的所有子问题
-        qs = self.q.Q_ques_dict[self.q.question.Q_name]
+        qs = self.q.get_ques_q()
         self.cols = []
         for i in qs:
             o = 'n01' + i.question.long_name + ';col(a)=' + str(i.question.col.col_start)
@@ -447,4 +459,14 @@ class Question_P_Grid_Multi(Question_P_Grid):
         self.outputs.append(self.desc)
         self.outputs.append(self.base)
         self.outputs.append(self.include)
+
+class Question_P_Top2(Question_P):
+    #所有的top2的类的父类
+    def __init__(self, q, t):
+        super(Question_P_Top2, self).__init__(q, t)
+
+class Question_P_Mean(Question_P):
+    #所有的top2的类的父类
+    def __init__(self, q, t):
+        super(Question_P_Mean, self).__init__(q, t)
 
