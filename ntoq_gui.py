@@ -15,6 +15,7 @@ import gettext
 # end wxGlade
 import ques
 import os
+import pdb
 
 class QuesGrid(wx.grid.PyGridTableBase):
     QuesCol = ['VAR题号', '题目主干', '过滤条件', '题目选项', '题目属性', 'base', '结果位置', "PRG内容", "PUB内容" ]
@@ -126,28 +127,31 @@ class BaseModDialog(wx.Dialog):
         self.__do_layout()
         # end wxGlade
 
-    def OnOK(self):
+    def OnOK(self, event):
         key = self.text_ctrl_key.GetLineText(0).strip()
         data = self.text_ctrl_data.GetLineText(0).strip()
         #检查空值
         if key == '' or data == '':
-            wx.MessageBox("请输入有效数据", wx.ID_OK)
+            wx.MessageBox("请输入有效数据", style=wx.ID_OK)
             return 
 
         #检查重复
-        if key in self.GetParent().base_dict:
-            wx.MessageBox("BASE名称和已有的重复")
+        #如果key输入无效, 是修改，不需要判断重复
+        if self.text_ctrl_key.IsEnabled() and key in self.GetParent().base_dict:
+            wx.MessageBox("BASE名称和已有的重复", style=wx.ID_OK)
             return
-        
+
+        self.key = key
+        self.data = data
         self.EndModal(True)
 
-    def OnCancel(self):
+    def OnCancel(self, event):
         self.EndModal(False)
 
     def __set_properties(self):
         # begin wxGlade: BaseModDialog.__set_properties
         self.SetTitle((u"操作base内容"))
-        self.static_line_1.SetMinSize((682, 2))
+        self.static_line_1.SetMinSize((400, 2))
         # end wxGlade
 
     def __do_layout(self):
@@ -177,45 +181,35 @@ class BaseModDialog(wx.Dialog):
         # end wxGlade
 
 
-
 #操作base的窗口
 class BaseDialog(wx.Dialog):
-    def __init_(self, *args, **kwds):
+    def __init__(self, *args, **kwds):
         # begin wxGlade: BaseDialog.__init__
         kwds["style"] = wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.THICK_FRAME
-        wx.Dialog.__init_(self, *args, **kwds)
+        wx.Dialog.__init__(self, *args, **kwds)
 
         self.list_ctrl_base = wx.ListCtrl(self, wx.ID_ANY, style=wx.LC_REPORT | wx.RAISED_BORDER|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES)
 
-        self.button_add = wx.Button(self, wx.ID_ANY, (u"保存"))
+        self.button_add = wx.Button(self, wx.ID_ANY, (u"添加"))
         self.button_del = wx.Button(self, wx.ID_ANY, (u"删除"))
         self.button_mod = wx.Button(self, wx.ID_ANY, (u"修改"))
         self.button_read = wx.Button(self, wx.ID_ANY, (u"导入"))
-        self.button_1_copy_2_copy = wx.Button(self, wx.ID_ANY, ("button_1"))
+        self.button_base_1 = wx.Button(self, wx.ID_ANY, ("button_1"))
         self.button_base_2 = wx.Button(self, wx.ID_ANY, ("button_1"))
 
         self.__set_properties()
         self.__do_layout()
         # end wxGlade
 
-        #操作数据, 参数base中是字典
-        self.base_dic = kwds['base']
+        #操作数据, 参数base中是字典, 在外部设置
+        self.base_dict = self.GetParent().base_dict
         self.list_ctrl_base.InsertColumn(0, '标签')
         self.list_ctrl_base.InsertColumn(1, '文本')
-        #插入数据
-        for i in self.base_dic:
-            index = self.list_ctrl_base.InsertStringItem(-1, i)
-            self.list_ctrl_base.SetStringItem(index, 1, self.base_dic[i])
+        self.list_ctrl_base.SetColumnWidth(1, wx.LIST_AUTOSIZE)
 
-        #参数op表示选择还是修改
-        self.sel = kwds['sel']
-        if self.sel == True:
-            self.button_add.hide()
-            self.button_del.hide()
-            self.button_mod.hide()
-            self.button_read.hide()
-            self.button_base_1.hide()
-            self.button_base_1.hide()
+        self.Bind(wx.EVT_BUTTON, self.OnAdd, self.button_add)
+        self.Bind(wx.EVT_BUTTON, self.OnDel, self.button_del)
+        self.Bind(wx.EVT_BUTTON, self.OnMod, self.button_mod)
 
     def __set_properties(self):
         # begin wxGlade: BaseDialog.__set_properties
@@ -249,54 +243,57 @@ class BaseDialog(wx.Dialog):
         self.Layout()
         # end wxGlade
 
-    def OnAdd(self):
+    def OnAdd(self, event):
         #增加base
-        base_dlg = BaseModDialog()
+        base_dlg = BaseModDialog(self)
         res = base_dlg.ShowModal()
         if res == True:
-            key = base_dlg.text_ctrl_key.GetLineText(0)
-            data = base_dlg.text_ctrl_data.GetLineText(0)
+            key = base_dlg.key
+            data = base_dlg.data
             self.base_dict[key] = data
-            index = self.list_ctrl_base.InsertStringItem(-1, key)
-            self.list_ctrl_base.SetStringItem(index, 1, self.base_dic[key])
-            self.list_ctrl_base.Select(index)
+            self.list_ctrl_base.Append((key, data))
+            index = self.list_ctrl_base.GetItemCount()
+            self.list_ctrl_base.Select(index - 1)
+            self.list_ctrl_base.Refresh()
 
-    def OnDel(self):
+    def OnDel(self, event):
         sel = self.list_ctrl_base.GetFirstSelected()
         if sel == -1:
-            wx.MessageBox("请先在左边表格中选中一个BASE", wx.ID_OK)
+            wx.MessageBox("请先在左边表格中选中一个BASE", style=wx.ID_OK)
             return
         
         key = self.list_ctrl_base.GetItemText(sel)
         if key in self.base_dict:
-            del sel.base_dict[key]
+            del self.base_dict[key]
             self.list_ctrl_base.DeleteItem(sel)
+            self.list_ctrl_base.Refresh()
 
-    def OnMod(self):
+    def OnMod(self, event):
         sel = self.list_ctrl_base.GetFirstSelected()
         if sel == -1:
-            wx.MessageBox("请先在左边表格中选中一个BASE", wx.ID_OK)
+            wx.MessageBox("请先在左边表格中选中一个BASE", style=wx.ID_OK)
             return
 
         key = self.list_ctrl_base.GetItemText(sel)
         if not key in self.base_dict:
-            wx.MessageBox("严重错误!!", wx.ID_OK)
+            wx.MessageBox("严重错误!!", style=wx.ID_OK)
             return
         data = self.base_dict[key]
         
-        base_dlg = BaseModDialog()
+        base_dlg = BaseModDialog(self)
         base_dlg.text_ctrl_key.AppendText(key)
         base_dlg.text_ctrl_key.Enable(False)
         base_dlg.text_ctrl_data.AppendText(data)
         if base_dlg.ShowModal() == True:
-            data = base_dlg.text_ctrl_data.GetLineText(0)
+            data = base_dlg.data
             self.base_dict[key] = data
-            self.list_ctrl_base.SetStringItem(sel, 1, self.base_dic[key])
+            self.list_ctrl_base.SetStringItem(sel, 1, self.base_dict[key])
             self.list_ctrl_base.Select(sel)
+            self.list_ctrl_base.Refresh(sel)
 
 
 class MainFrame(wx.Frame):
-    def __init(self, *args, **kwds):
+    def __init__(self, *args, **kwds):
 
         #创建gridtable
         self.gt = QuesGrid()
@@ -307,7 +304,7 @@ class MainFrame(wx.Frame):
 
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
-        wx.Frame.__init(self, *args, **kwds)
+        wx.Frame.__init__(self, *args, **kwds)
         
         # Menu Bar
         self.frame_main_menubar = wx.MenuBar()
@@ -319,8 +316,8 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnSave, menu_file_save)
 
         menu_tool = wx.Menu()
-        self.menu_tool_base = menu_tool.Append(-1, "&Base", "操作BASE数据")
-        #self.Bind(wx.EVT_MENU, self.OnBase, self.menu_tool_base)
+        menu_tool_base = menu_tool.Append(-1, "&Base", "操作BASE数据")
+        self.Bind(wx.EVT_MENU, self.OnBase, menu_tool_base)
         self.frame_main_menubar.Append(menu_tool, ("&Tools"))
         self.SetMenuBar(self.frame_main_menubar)
 
@@ -436,10 +433,8 @@ class MainFrame(wx.Frame):
             pass
           
     def OnBase(self, event):
-        dlg_base = BaseDialog(sel=True, base = self.base_dict)
+        dlg_base = BaseDialog(self)
         dlg_base.ShowModal()
-        #测试
-        wx.MessageBox(str(self.base_dict))
         
 
 # end of class MainFrame
