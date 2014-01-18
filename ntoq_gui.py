@@ -473,15 +473,15 @@ class MainFrame(wx.Frame):
           
     def OnBase(self, event):
         #测试选择base操作
-        self.proj.base_dict = {'a':'abcdefg', 'h':'hijklmn', 'o':'opqrst'}
-        if len(self.proj.base_dict) == 0:
-            wx.MessageBox('没有base数据可选,请先创建', style=wx.ID_OK)
-            return 
-        dlg_base = BaseDialog(self)
-        dlg_base.set_select()
-        sel = dlg_base.ShowModal()
-        wx.MessageBox(str(sel), style=wx.ID_OK)
-        return 
+        # self.proj.base_dict = {'a':'abcdefg', 'h':'hijklmn', 'o':'opqrst'}
+        # if len(self.proj.base_dict) == 0:
+        #     wx.MessageBox('没有base数据可选,请先创建', style=wx.ID_OK)
+        #     return 
+        # dlg_base = BaseDialog(self)
+        # dlg_base.set_select()
+        # sel = dlg_base.ShowModal()
+        # wx.MessageBox(str(sel), style=wx.ID_OK)
+        # return 
         
         if not self.proj:
             wx.MessageBox('还没有打开VAR文件', style=wx.ID_OK)

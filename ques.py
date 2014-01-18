@@ -437,6 +437,13 @@ class Question(object):
         #获取处于一个循环的题目
         return self.proj.ques_q_dict[self.question.Q_name]
 
+    def ignore_ques(self):
+        #需要忽略的题目
+        ignore_var = ['CHANNEL',]
+        if self.question.V_name in ignore_var :
+            return True
+        return False
+
 class Project(object):
     #全局变量
     def __init__(self, var_fn):
@@ -464,6 +471,10 @@ class Project(object):
         self.parse_file()
 
     def add_question(self, q):
+        #忽略特殊的题目
+        if q.ignore_ques():
+            return 
+
         #对于单选题, 如果没有选项,遍为number问题
         if q.question.type_ques == Sentense_ques.QUESTION_SINGLE and len(q.options) == 0:
             q.question.type_ques = Sentense_ques.QUESTION_NUMBER
