@@ -18,11 +18,11 @@ import os
 import pdb
 
 class QuesGrid(wx.grid.PyGridTableBase):
-    QuesCol = ['VAR题号', '题目主干', '过滤条件', '题目选项', '题目属性', 'base', '结果位置', "PRG内容", "PUB内容" ]
+    QuesCol = ['VAR题号', '题目主干', '过滤条件', 'VAR内容', '题目属性', 'base', '结果位置', "PRG内容", "PUB内容" ]
     QUES_VAR = 0
     QUES_TRUNK = 1
     QUES_FILT = 2
-    QUES_OPTI = 3
+    QUES_VAR_LINE = 3
     QUES_FEAT = 4
     QUES_BASE = 5
     QUES_RESU = 6
@@ -32,6 +32,9 @@ class QuesGrid(wx.grid.PyGridTableBase):
     def __init__(self):
         super(QuesGrid, self).__init__()
         self.all_ques = []
+
+        self.default_attr = wx.grid.GridCellAttr()
+        self.default_attr.SetReadOnly(True)
 
     def ResetQues(self, qs):
         #打开VAR文件后,根据解析结果更新grid
@@ -60,6 +63,12 @@ class QuesGrid(wx.grid.PyGridTableBase):
 
     def CanHaveAttributes(self):
         return True
+
+    def GetAttr(self, row, col, kind):
+        #获取cell的属性
+        attr = self.default_attr
+        attr.IncRef()
+        return attr
 
     #columes
     def GetColLabelValue(self, col):
@@ -91,7 +100,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
             if q.condition:
                 return q.condition.output
             return '无'
-        elif col == QuesGrid.QUES_OPTI:
+        elif col == QuesGrid.QUES_VAR_LINE:
             return '查看'
         elif col == QuesGrid.QUES_FEAT:
             return ','.join(pq.features())
@@ -222,6 +231,7 @@ class BaseDialog(wx.Dialog):
     def set_select(self):
         #如果是选择base时,隐藏一些button
         #而且button_add按钮功能改变
+        self.SetTitle('修改题目的BASE')
         self.sel = True
         self.button_del.Hide()
         self.button_mod.Hide()
@@ -269,6 +279,9 @@ class BaseDialog(wx.Dialog):
             if sel == -1:
                 wx.MessageBox("请先在左边表格中选中一个BASE", style=wx.ID_OK)
                 return
+            key = self.list_ctrl_base.GetItem(sel).GetText()
+            self.selected_key = key
+
             self.EndModal(sel)
             return
 
@@ -374,6 +387,10 @@ class MainFrame(wx.Frame):
         self.__do_layout()
         # end wxGlade
 
+        #grid事件
+        self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.OnGridClick, self.grid_ques)
+
+
     def __set_properties(self):
         # begin wxGlade: MainFrame.__set_properties
         self.SetTitle(("NToQ"))
@@ -472,22 +489,47 @@ class MainFrame(wx.Frame):
             self.proj.save_prg(prg_dir)
           
     def OnBase(self, event):
-        #测试选择base操作
-        # self.proj.base_dict = {'a':'abcdefg', 'h':'hijklmn', 'o':'opqrst'}
-        # if len(self.proj.base_dict) == 0:
-        #     wx.MessageBox('没有base数据可选,请先创建', style=wx.ID_OK)
-        #     return 
-        # dlg_base = BaseDialog(self)
-        # dlg_base.set_select()
-        # sel = dlg_base.ShowModal()
-        # wx.MessageBox(str(sel), style=wx.ID_OK)
-        # return 
-        
         if not self.proj:
             wx.MessageBox('还没有打开VAR文件', style=wx.ID_OK)
             return 
         dlg_base = BaseDialog(self)
         dlg_base.ShowModal()
+
+    def OnGridClick(self, event):
+        if len(self.gt.all_ques) == 0:
+            wx.MessageBox('没有base数据可选,请先创建', style=wx.ID_OK)
+            return 
+
+        qp = self.gt.all_ques[event.GetRow()]
+
+        #对于不同的col,处理不一样
+        col = event.GetCol()
+
+        if col == QuesGrid.QUES_BASE:
+            dlg_base = BaseDialog(self)
+            dlg_base.set_select()
+            key = dlg_base.ShowModal()
+            if key == -1 :
+                return 
+            qp.base = dlg_base.selected_key
+            qp.format()
+        elif col == QuesGrid.QUES_PRG:
+            #显示prg问题内容
+            pass
+
+        elif col == QuesGrid.QUES_VAR_LINE:
+            #显示VAR内容
+            lines = []
+            q = qp.q
+            lines.append(q.question.string)
+            if q.condition:
+                lines.append(q.condition.string)
+            for o in q.options:
+                lines.append(o.string)
+
+            wx.MessageBox('\n'.join(lines), style=wx.ID_OK)
+            return 
+            
         
 
 # end of class MainFrame
