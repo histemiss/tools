@@ -18,7 +18,7 @@ import os
 import pdb
 
 class QuesGrid(wx.grid.PyGridTableBase):
-    QuesCol = ['VAR题号', '题目主干', '过滤条件', 'VAR内容', '题目属性', 'base', '结果位置', "PRG内容", "PUB内容" ]
+    QuesCol = [u'VAR题号', u'题目主干', u'过滤条件', u'VAR内容', u'题目属性', u'base', u'结果位置', u"PRG内容", u"PUB内容" ]
     QUES_VAR = 0
     QUES_TRUNK = 1
     QUES_FILT = 2
@@ -87,7 +87,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
     #cell value
     def GetValue(self, row, col):
         if len(self.all_ques) == 0:
-            return '没有数据'
+            return u'没有数据'
 
         pq = self.all_ques[row]
         q = pq.q
@@ -99,9 +99,9 @@ class QuesGrid(wx.grid.PyGridTableBase):
         elif col == QuesGrid.QUES_FILT:
             if q.condition:
                 return q.condition.output
-            return '无'
+            return u'无'
         elif col == QuesGrid.QUES_VAR_LINE:
-            return '查看'
+            return u'查看'
         elif col == QuesGrid.QUES_FEAT:
             return ','.join(pq.features())
         elif col == QuesGrid.QUES_BASE:
@@ -109,10 +109,10 @@ class QuesGrid(wx.grid.PyGridTableBase):
         elif col == QuesGrid.QUES_RESU:
             return "%d,%d" % (q.question.col.col_start, q.question.col.col_width)
         elif col == QuesGrid.QUES_PRG:
-            return '查看'
+            return u'查看'
         elif col == QuesGrid.QUES_PUB:
             if len(pq.pub_fn) == 0:
-                return '无'
+                return u'无'
             return pq.pub_fn
         
         return ''
@@ -142,13 +142,13 @@ class BaseModDialog(wx.Dialog):
         data = self.text_ctrl_data.GetLineText(0).strip()
         #检查空值
         if key == '' or data == '':
-            wx.MessageBox("请输入有效数据", style=wx.ID_OK)
+            wx.MessageBox(u'请输入有效数据', style=wx.OK)
             return 
 
         #检查重复
         #如果key输入无效, 是修改，不需要判断重复
         if self.text_ctrl_key.IsEnabled() and key in self.GetParent().base_dict:
-            wx.MessageBox("BASE名称和已有的重复", style=wx.ID_OK)
+            wx.MessageBox(u'BASE名称和已有的重复', style=wx.OK)
             return
 
         self.key = key
@@ -160,7 +160,7 @@ class BaseModDialog(wx.Dialog):
 
     def __set_properties(self):
         # begin wxGlade: BaseModDialog.__set_properties
-        self.SetTitle((u"操作base内容"))
+        self.SetTitle((u'操作base内容'))
         self.static_line_1.SetMinSize((400, 2))
         # end wxGlade
 
@@ -201,7 +201,7 @@ class BaseDialog(wx.Dialog):
 
         self.list_ctrl_base = wx.ListCtrl(self, wx.ID_ANY, style=wx.LC_REPORT | wx.RAISED_BORDER|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES)
 
-        self.button_close = wx.Button(self, wx.ID_ANY, ("关闭"))
+        self.button_close = wx.Button(self, wx.ID_ANY, (u"关闭"))
         self.button_add = wx.Button(self, wx.ID_ANY, (u"添加"))
         self.button_del = wx.Button(self, wx.ID_ANY, (u"删除"))
         self.button_mod = wx.Button(self, wx.ID_ANY, (u"修改"))
@@ -214,8 +214,8 @@ class BaseDialog(wx.Dialog):
 
         #操作数据, 参数base中是字典, 在外部设置
         self.base_dict = self.GetParent().proj.base_dict
-        self.list_ctrl_base.InsertColumn(0, '标签')
-        self.list_ctrl_base.InsertColumn(1, '文本')
+        self.list_ctrl_base.InsertColumn(0, u'标签')
+        self.list_ctrl_base.InsertColumn(1, u'文本')
         self.list_ctrl_base.SetColumnWidth(1, wx.LIST_AUTOSIZE)
         for i in self.base_dict:
             self.list_ctrl_base.Append((i, self.base_dict[i]))
@@ -237,8 +237,8 @@ class BaseDialog(wx.Dialog):
         self.button_mod.Hide()
         self.button_read.Hide()
         self.button_base_2.Hide()
-        self.button_add.SetLabel('确定')
-        self.button_close.SetLabel('取消')
+        self.button_add.SetLabel(u'确定')
+        self.button_close.SetLabel(u'取消')
         
     def __set_properties(self):
         # begin wxGlade: BaseDialog.__set_properties
@@ -277,7 +277,7 @@ class BaseDialog(wx.Dialog):
             #选择模式
             sel = self.list_ctrl_base.GetFirstSelected()
             if sel == -1:
-                wx.MessageBox("请先在左边表格中选中一个BASE", style=wx.ID_OK)
+                wx.MessageBox(u"请先在左边表格中选中一个BASE", style=wx.OK)
                 return
             key = self.list_ctrl_base.GetItem(sel).GetText()
             self.selected_key = key
@@ -300,7 +300,7 @@ class BaseDialog(wx.Dialog):
     def OnDel(self, event):
         sel = self.list_ctrl_base.GetFirstSelected()
         if sel == -1:
-            wx.MessageBox("请先在左边表格中选中一个BASE", style=wx.ID_OK)
+            wx.MessageBox(u"请先在左边表格中选中一个BASE", style=wx.OK)
             return
         
         key = self.list_ctrl_base.GetItemText(sel)
@@ -312,12 +312,12 @@ class BaseDialog(wx.Dialog):
     def OnMod(self, event):
         sel = self.list_ctrl_base.GetFirstSelected()
         if sel == -1:
-            wx.MessageBox("请先在左边表格中选中一个BASE", style=wx.ID_OK)
+            wx.MessageBox(u"请先在左边表格中选中一个BASE", style=wx.OK)
             return
 
         key = self.list_ctrl_base.GetItemText(sel)
         if not key in self.base_dict:
-            wx.MessageBox("严重错误!!", style=wx.ID_OK)
+            wx.MessageBox(u"严重错误!!", style=wx.OK)
             return
         data = self.base_dict[key]
         
@@ -353,14 +353,14 @@ class MainFrame(wx.Frame):
         # Menu Bar
         self.frame_main_menubar = wx.MenuBar()
         menu_file = wx.Menu()
-        menu_file_open = menu_file.Append(-1, "&Open", "打开VAR文件")
-        menu_file_save = menu_file.Append(-1, "&Save", "保存PRG项目")
+        menu_file_open = menu_file.Append(-1, "&Open", u"打开VAR文件")
+        menu_file_save = menu_file.Append(-1, "&Save", u"保存PRG项目")
         self.frame_main_menubar.Append(menu_file, ("&File"))
         self.Bind(wx.EVT_MENU, self.OnOpen, menu_file_open)
         self.Bind(wx.EVT_MENU, self.OnSave, menu_file_save)
 
         menu_tool = wx.Menu()
-        menu_tool_base = menu_tool.Append(-1, "&Base", "操作BASE数据")
+        menu_tool_base = menu_tool.Append(-1, "&Base", u"操作BASE数据")
         self.Bind(wx.EVT_MENU, self.OnBase, menu_tool_base)
         self.frame_main_menubar.Append(menu_tool, ("&Tools"))
         self.SetMenuBar(self.frame_main_menubar)
@@ -464,11 +464,11 @@ class MainFrame(wx.Frame):
     def OnOpen(self, event):
 
         if self.proj is not None and self.proj.dirty :
-            res = wx.MessageBox("当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES | wx.CANCEL)
+            res = wx.MessageBox(u"当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES | wx.CANCEL)
             if res != wx.YES:
                 return
 
-        dia_file = wx.FileDialog(None, "选择VAR文件", os.getcwd(), "", "VAR文件 (*.VAR)|*.VAR", wx.OPEN)
+        dia_file = wx.FileDialog(None, u"选择VAR文件", os.getcwd(), "", u"VAR文件 (*.VAR)|*.VAR", wx.OPEN)
         if dia_file.ShowModal() == wx.ID_OK:
             #之前的配置无效
             del self.proj
@@ -481,23 +481,23 @@ class MainFrame(wx.Frame):
         
     def OnSave(self, event):
         if self.proj == None:
-            wx.MessageBox('还没有打开VAR文件', style=wx.ID_OK)
+            wx.MessageBox(u'还没有打开VAR文件', style=wx.OK)
             return 
             
-        prg_dir = wx.DirSelector("选择保存位置...")
+        prg_dir = wx.DirSelector(u"选择保存位置...")
         if prg_dir.strip():
             self.proj.save_prg(prg_dir)
           
     def OnBase(self, event):
         if not self.proj:
-            wx.MessageBox('还没有打开VAR文件', style=wx.ID_OK)
+            wx.MessageBox(u'还没有打开VAR文件', style=wx.OK)
             return 
         dlg_base = BaseDialog(self)
         dlg_base.ShowModal()
 
     def OnGridClick(self, event):
         if len(self.gt.all_ques) == 0:
-            wx.MessageBox('没有base数据可选,请先创建', style=wx.ID_OK)
+            wx.MessageBox(u'没有base数据可选,请先创建', style=wx.OK)
             return 
 
         qp = self.gt.all_ques[event.GetRow()]
@@ -527,7 +527,7 @@ class MainFrame(wx.Frame):
             for o in q.options:
                 lines.append(o.string)
 
-            wx.MessageBox('\n'.join(lines), style=wx.ID_OK)
+            wx.MessageBox('\n'.join(lines), style=wx.OK)
             return 
             
         
@@ -535,9 +535,7 @@ class MainFrame(wx.Frame):
 # end of class MainFrame
 if __name__ == "__main__":
     gettext.install("NToQ") # replace with the appropriate catalog name
-
-    NToQ = wx.PySimpleApp(0)
-    wx.InitAllImageHandlers()
+    NToQ = wx.App()
     frame_main = MainFrame(None, wx.ID_ANY, "")
     NToQ.SetTopWindow(frame_main)
     frame_main.Show()
