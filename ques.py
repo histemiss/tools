@@ -149,7 +149,7 @@ class Sentense_cond(Sentense):
         #查找q对应的题目
         q = self.proj.ques_v_dict[q]
         if not q:
-            print("找不到判断条件的题号", c)
+            print(u"找不到判断条件的题号", c)
             raise None
         col_start = q.question.col.col_start
         col_width = q.question.col.col_width
@@ -292,7 +292,7 @@ class Sentense_cond(Sentense):
         o = self.cond_parse(cond_str)
 
         if o == None:
-            print('条件解析错误:', self.string)
+            print(u'条件解析错误:', self.string)
             raise None
         
         self.output = ';c=' + o
@@ -325,7 +325,7 @@ class Sentense_ques(Sentense):
         #解析var文件中的名字, 第一个token
         self.V_name = r.sub('', self.tokens[0].string)
         if self.V_name[0] != '*':
-            print("VAR名字必须以'*'开头")
+            print(u"VAR名字必须以'*'开头")
             raise None
         #去掉'*'
         self.V_name = self.V_name[1:]
@@ -369,7 +369,7 @@ class Sentense_opti(Sentense):
     def __init__(self, ts=[], s='', l = 0):
         super(Sentense_opti, self).__init__(ts, s, l, Sentense.SENTENSE_OPTION)
         if len(self.tokens) != 2:
-            print("选项行应该只有2个token:", self.string)
+            print(u"选项行应该只有2个token:", self.string)
             raise None
         r = re.compile('(\A\s*)|(\s*\Z)|(\')')
         self.option_key = int(r.sub('', self.tokens[0].string))
@@ -556,7 +556,7 @@ class Project(object):
             if s.type == Sentense.SENTENSE_BLACK:
                 continue
             if not s.type in expects:
-                print("解析失败, 获取%d, 期望是:%s" % (s.type,str(expects)))
+                print(u"解析失败, 获取%d, 期望是:%s" % (s.type,str(expects)))
                 raise None
             
             if s.type == Sentense.SENTENSE_QUESTION :

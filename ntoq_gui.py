@@ -160,7 +160,7 @@ class BaseModDialog(wx.Dialog):
 
     def __set_properties(self):
         # begin wxGlade: BaseModDialog.__set_properties
-        self.SetTitle((u'操作base内容'))
+        self.SetTitle(u'操作base内容')
         self.static_line_1.SetMinSize((400, 2))
         # end wxGlade
 
@@ -231,7 +231,7 @@ class BaseDialog(wx.Dialog):
     def set_select(self):
         #如果是选择base时,隐藏一些button
         #而且button_add按钮功能改变
-        self.SetTitle('修改题目的BASE')
+        self.SetTitle(u'修改题目的BASE')
         self.sel = True
         self.button_del.Hide()
         self.button_mod.Hide()
