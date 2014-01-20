@@ -243,7 +243,7 @@ class BaseDialog(wx.Dialog):
     def __set_properties(self):
         # begin wxGlade: BaseDialog.__set_properties
         self.SetTitle((u"操作BASE数据"))
-        self.SetSize((500, 600))
+        self.SetSize((500, 400))
         self.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.button_close.SetMinSize((100, 50))
         self.button_add.SetMinSize((100, 50))
@@ -335,7 +335,91 @@ class BaseDialog(wx.Dialog):
     def OnClose(self, event):
         #关闭按钮
         self.EndModal(-1)
+        return 
 
+class TextDialog(wx.Dialog):
+    def __init__(self, *args, **kwds):
+        # begin wxGlade: TextDialog.__init__
+        kwds["style"] = wx.DEFAULT_DIALOG_STYLE
+        wx.Dialog.__init__(self, *args, **kwds)
+        self.text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_LINEWRAP)
+        self.static_line_2 = wx.StaticLine(self, wx.ID_ANY)
+        self.button_ok = wx.Button(self, wx.ID_ANY, u"修改")
+        self.button_cancel = wx.Button(self, wx.ID_ANY, u"退出")
+        self.Bind(wx.EVT_BUTTON, self.OnMod, self.button_ok)
+        self.Bind(wx.EVT_BUTTON, self.OnCancel, self.button_cancel)
+
+        self.__set_properties()
+        self.__do_layout()
+        # end wxGlade
+
+    def set_prg(self, qps):
+        #窗口显示prg数据
+        #参数是Q的question数组
+        self.op = 'prg'
+        self.qps = qps
+        #只能修改一个question的prg数组
+        if len(qps) != 1:
+            wx.MessageBox(u'严重错误, 只能操作一个问题的prg内容', style=wx.OK)
+            return 
+
+        self.SetTitle(u'操作prg数据')
+        self.text_ctrl.ChangeValue('\n'.join(qps[0].outputs))
+
+    def set_pub(self, qps):
+        #窗口操作prg数组
+        self.op = 'pub'
+        self.qps = qps
+        self.SetTitle(u'操作pub文件')
+        self.text_ctrl.ChangeValue('\n'.join(qps[0].pub_lines))
+
+    def OnMod(self, event):
+        if not self.text_ctrl.IsModified():
+            wx.MessageBox(u'内容没有修改')
+            return
+        
+        #保存数据
+        if self.op == 'prg':
+            self.qps[0].outputs = self.text_ctrl.GetValue().split('\n')
+        else:
+            #prg文件将使用单独的文件名
+            #新的pub文件名是第一个问题的P_name
+            new_fn = qps[0].q.question.P_name + '.pub'
+            pub_lines= self.text_ctrl.GetValue().split('\n')
+            for q in self.qps:
+                q.pub_fn = new_fn
+                q.pub_lines = pub_lines
+
+        self.EndModal(wx.OK)
+        return 
+
+    def OnCancel(self, event):
+        self.EndModal(wx.CANCEL)
+        return 
+
+    def __set_properties(self):
+        # begin wxGlade: TextDialog.__set_properties
+        self.SetTitle(_("text"))
+        self.SetSize((400, 300))
+        self.button_ok.SetMinSize((85, 27))
+        self.button_cancel.SetMinSize((85, 27))
+        # end wxGlade
+
+    def __do_layout(self):
+        # begin wxGlade: TextDialog.__do_layout
+        sizer_4 = wx.BoxSizer(wx.VERTICAL)
+        grid_sizer_1 = wx.FlexGridSizer(1, 2, 5, 5)
+        sizer_4.Add(self.text_ctrl, 1, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 10)
+        sizer_4.Add(self.static_line_2, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 10)
+        grid_sizer_1.Add(self.button_ok, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.ADJUST_MINSIZE, 0)
+        grid_sizer_1.Add(self.button_cancel, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.ADJUST_MINSIZE, 0)
+        grid_sizer_1.AddGrowableRow(0)
+        grid_sizer_1.AddGrowableCol(0)
+        grid_sizer_1.AddGrowableCol(1)
+        sizer_4.Add(grid_sizer_1, 0, wx.BOTTOM | wx.EXPAND, 15)
+        self.SetSizer(sizer_4)
+        self.Layout()
+        # end wxGlade
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -496,9 +580,6 @@ class MainFrame(wx.Frame):
         dlg_base.ShowModal()
 
     def OnGridClick(self, event):
-        if len(self.gt.all_ques) == 0:
-            wx.MessageBox(u'没有base数据可选,请先创建', style=wx.OK)
-            return 
 
         qp = self.gt.all_ques[event.GetRow()]
 
@@ -515,8 +596,22 @@ class MainFrame(wx.Frame):
             qp.format()
         elif col == QuesGrid.QUES_PRG:
             #显示prg问题内容
-            pass
-
+            prg_dia = TextDialog(self)
+            qps = []
+            qps.append(qp)
+            prg_dia.set_prg(qps)
+            prg_dia.ShowModal()
+        elif col == QuesGrid.QUES_PUB:
+            #显示pub问题内容
+            if qp.pub_fn == '':
+                #没有pub文件
+                return 
+            prg_dia = TextDialog(self)
+            qps = []
+            qps.append(qp)
+            prg_dia.set_pub(qps)
+            prg_dia.ShowModal()
+            
         elif col == QuesGrid.QUES_VAR_LINE:
             #显示VAR内容
             lines = []
