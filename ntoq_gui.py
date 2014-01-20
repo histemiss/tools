@@ -17,17 +17,66 @@ from ques import *
 import os
 import pdb
 
+#临时变量
+bitmaps = []
+
+class GridImgRender(wx.grid.PyGridCellRenderer):
+    def __init__(self):
+        super(GridImgRender, self).__init__()
+        
+    def Draw(self, grid, attr, dc, rect, row, col, isSelected):
+        v = grid.GetTable().checkboxes[row]
+
+        #获取background
+        bg = grid.GetDefaultCellBackgroundColour()
+        if isSelected:
+            bg = grid.GetSelectionBackground()
+        dc.SetBrush(wx.Brush(bg, wx.SOLID))
+        dc.SetPen(wx.TRANSPARENT_PEN)
+        dc.DrawRectangleRect(rect)
+
+        #准备位图
+        bt = bitmaps[0]
+        if v:
+            bt = bitmaps[1]
+        if rect.Width > bt.Width:
+            rect.X += (rect.Width / 2 - bt.Width / 2)
+        if rect.Height > bt.Height:
+            rect.y += (rect.Height / 2 - bt.Height / 2)
+        dc.DrawBitmap(bt, rect.X, rect.Y, False)
+
+    def GetBestSize(self, grid, attr, dc, row, col):
+         text = 'test'
+         w, h = dc.GetTextExtent(text)
+         return wx.Size(w, h)
+         
+    def Clone(self):
+        return GridImgRender()
+
 class QuesGrid(wx.grid.PyGridTableBase):
-    QuesCol = [u'VAR题号', u'题目主干', u'过滤条件', u'VAR内容', u'题目属性', u'base', u'结果位置', u"PRG内容", u"PUB内容" ]
-    QUES_VAR = 0
-    QUES_TRUNK = 1
-    QUES_FILT = 2
-    QUES_VAR_LINE = 3
-    QUES_FEAT = 4
-    QUES_BASE = 5
-    QUES_RESU = 6
-    QUES_PRG = 7
-    QUES_PUB = 8
+    QUES_SEL = 0
+    QUES_VAR = 1
+    QUES_TRUNK = 2
+    QUES_FILT = 3
+    QUES_VAR_LINE = 4
+    QUES_FEAT = 5
+    QUES_BASE = 6
+    QUES_RESU = 7
+    QUES_PRG = 8
+    QUES_PUB = 9
+
+    QuesCol = {
+        QUES_SEL:u'选中',
+        QUES_VAR:u'VAR题号',
+        QUES_TRUNK:u'题目主干',
+        QUES_FILT:u'过滤条件',
+        QUES_VAR_LINE:u'VAR内容',
+        QUES_FEAT:u'题目属性',
+        QUES_BASE:u'BASE',
+        QUES_RESU:u'结果位置',
+        QUES_PRG:u"PRG内容",
+        QUES_PUB:u"PUB内容"
+        }
 
     def __init__(self):
         super(QuesGrid, self).__init__()
@@ -36,10 +85,20 @@ class QuesGrid(wx.grid.PyGridTableBase):
         self.default_attr = wx.grid.GridCellAttr()
         self.default_attr.SetReadOnly(True)
 
+        self.checkbox_attr = wx.grid.GridCellAttr()
+        self.checkbox_attr.SetRenderer(GridImgRender())
+        #self.checkbox_attr.SetReadOnly(True)
+
+        #记录所有的checkbox
+        self.checkboxes = []
+
     def ResetQues(self, qs):
         #打开VAR文件后,根据解析结果更新grid
         old_qs = self.all_ques
         self.all_ques = qs
+
+        #checkbox
+        self.checkboxes = [ False ] * len(qs)
 
         self.GetView().BeginBatch()
         #删除所有的row
@@ -66,6 +125,11 @@ class QuesGrid(wx.grid.PyGridTableBase):
 
     def GetAttr(self, row, col, kind):
         #获取cell的属性
+        if col == QuesGrid.QUES_SEL:
+            attr = self.checkbox_attr
+            attr.IncRef()
+            return attr
+
         attr = self.default_attr
         attr.IncRef()
         return attr
@@ -75,7 +139,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
         return QuesGrid.QuesCol[col]
 
     def GetNumberCols(self):
-        return len(QuesGrid.QuesCol)
+        return len(QuesGrid.QuesCol.keys())
 
     #rows
     def GetNumberRows(self):
@@ -92,7 +156,9 @@ class QuesGrid(wx.grid.PyGridTableBase):
         pq = self.all_ques[row]
         q = pq.q
         
-        if col == QuesGrid.QUES_VAR:
+        if col == QuesGrid.QUES_SEL:
+            return self.checkboxes[row]
+        elif col == QuesGrid.QUES_VAR:
             return q.question.V_name
         elif col == QuesGrid.QUES_TRUNK:
             return q.question.long_name
@@ -190,9 +256,7 @@ class BaseModDialog(wx.Dialog):
         self.Layout()
         # end wxGlade
 
-
 #操作base的窗口
-
 class BaseDialog(wx.Dialog):
     def __init__(self, *args, **kwds):
         # begin wxGlade: BaseDialog.__init__
@@ -473,6 +537,7 @@ class MainFrame(wx.Frame):
 
         #grid事件
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.OnGridClick, self.grid_ques)
+        #self.grid_ques.DisableCellEditControl()
 
 
     def __set_properties(self):
@@ -579,6 +644,7 @@ class MainFrame(wx.Frame):
         dlg_base = BaseDialog(self)
         dlg_base.ShowModal()
 
+
     def OnGridClick(self, event):
 
         qp = self.gt.all_ques[event.GetRow()]
@@ -624,6 +690,11 @@ class MainFrame(wx.Frame):
 
             wx.MessageBox('\n'.join(lines), style=wx.OK)
             return 
+        else:
+            #其他列都是选中操作
+            self.gt.checkboxes[event.GetRow()] = not self.gt.checkboxes[event.GetRow()]
+            self.grid_ques.SelectBlock(event.GetRow(), 0, event.GetRow(), self.grid_ques.GetNumberCols()-1, False)
+
             
         
 
@@ -631,6 +702,10 @@ class MainFrame(wx.Frame):
 if __name__ == "__main__":
     gettext.install("NToQ") # replace with the appropriate catalog name
     NToQ = wx.App()
+
+    bitmaps.append(wx.Bitmap('notchecked.ico', wx.BITMAP_TYPE_ICO))
+    bitmaps.append(wx.Bitmap('checked.ico', wx.BITMAP_TYPE_ICO))
+
     frame_main = MainFrame(None, wx.ID_ANY, "")
     NToQ.SetTopWindow(frame_main)
     frame_main.Show()
