@@ -87,7 +87,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
 
         self.checkbox_attr = wx.grid.GridCellAttr()
         self.checkbox_attr.SetRenderer(GridImgRender())
-        #self.checkbox_attr.SetReadOnly(True)
+        self.checkbox_attr.SetReadOnly(True)
 
         #记录所有的checkbox
         self.checkboxes = []
@@ -537,7 +537,7 @@ class MainFrame(wx.Frame):
 
         #grid事件
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.OnGridClick, self.grid_ques)
-        #self.grid_ques.DisableCellEditControl()
+        self.grid_ques.DisableCellEditControl()
 
 
     def __set_properties(self):
@@ -703,8 +703,8 @@ if __name__ == "__main__":
     gettext.install("NToQ") # replace with the appropriate catalog name
     NToQ = wx.App()
 
-    bitmaps.append(wx.Bitmap('notchecked.ico', wx.BITMAP_TYPE_ICO))
-    bitmaps.append(wx.Bitmap('checked.ico', wx.BITMAP_TYPE_ICO))
+    bitmaps.append(wx.Bitmap('res/notchecked.ico', wx.BITMAP_TYPE_ICO))
+    bitmaps.append(wx.Bitmap('res/checked.ico', wx.BITMAP_TYPE_ICO))
 
     frame_main = MainFrame(None, wx.ID_ANY, "")
     NToQ.SetTopWindow(frame_main)
