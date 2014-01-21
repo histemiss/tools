@@ -548,7 +548,6 @@ class MainFrame(wx.Frame):
 
         #grid事件
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.OnGridClick, self.grid_ques)
-        self.grid_ques.DisableCellEditControl()
         
         #buttion事件
         #打开和保存
@@ -578,6 +577,9 @@ class MainFrame(wx.Frame):
 
         #grid
         self.grid_ques.SetTable(self.gt, True)
+        self.grid_ques.EnableEditing(0)
+        self.grid_ques.EnableDragRowSize(0)
+        self.grid_ques.SetSelectionMode(wx.grid.Grid.wxGridSelectRows)
         self.grid_ques.SetBackgroundColour(wx.Colour(255, 255, 255))
 
         self.pane_down.SetScrollRate(0, 0)
@@ -606,15 +608,15 @@ class MainFrame(wx.Frame):
         sizer_left.Add(sizer_left_up, 0, wx.EXPAND, 0)
         static_line_left = wx.StaticLine(self.pane_up, wx.ID_ANY)
         sizer_left.Add(static_line_left, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 5)
-        label_var = wx.StaticText(self.pane_up, wx.ID_ANY, _(u"VAR题号"))
+        label_var = wx.StaticText(self.pane_up, wx.ID_ANY, (u"VAR题号"))
         sizer_left_down_label.Add(label_var, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
-        label_trunk = wx.StaticText(self.pane_up, wx.ID_ANY, _(u"题干"))
+        label_trunk = wx.StaticText(self.pane_up, wx.ID_ANY, (u"题干"))
         sizer_left_down_label.Add(label_trunk, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
-        label_base = wx.StaticText(self.pane_up, wx.ID_ANY, _("BASE"))
+        label_base = wx.StaticText(self.pane_up, wx.ID_ANY, ("BASE"))
         sizer_left_down_label.Add(label_base, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
-        label_filter = wx.StaticText(self.pane_up, wx.ID_ANY, _(u"过滤条件"))
+        label_filter = wx.StaticText(self.pane_up, wx.ID_ANY, (u"过滤条件"))
         sizer_left_down_label.Add(label_filter, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
-        label_spec = wx.StaticText(self.pane_up, wx.ID_ANY, _(u"隐藏问题"))
+        label_spec = wx.StaticText(self.pane_up, wx.ID_ANY, (u"隐藏问题"))
         sizer_left_down_label.Add(label_spec, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
         sizer_left_down.Add(sizer_left_down_label, 1, wx.EXPAND | wx.ALIGN_RIGHT | wx.ADJUST_MINSIZE, 0)
         sizer_left_down_value.Add(self.text_ctrl_var, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
@@ -638,7 +640,7 @@ class MainFrame(wx.Frame):
         sizer_up.Add(sizer_left, 1, wx.LEFT | wx.TOP | wx.EXPAND, 20)
         static_line_middle = wx.StaticLine(self.pane_up, wx.ID_ANY, style=wx.LI_VERTICAL)
         sizer_up.Add(static_line_middle, 0, wx.LEFT | wx.TOP | wx.EXPAND, 10)
-        label_right_up = wx.StaticText(self.pane_up, wx.ID_ANY, _(u"批量修改题目"), style=wx.ALIGN_CENTRE)
+        label_right_up = wx.StaticText(self.pane_up, wx.ID_ANY, (u"批量修改题目"), style=wx.ALIGN_CENTRE)
         sizer_right.Add(label_right_up, 0, wx.ALL | wx.EXPAND | wx.ADJUST_MINSIZE, 11)
         sizer_right_down.Add(self.button_filt, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
         sizer_right_down.Add(self.button_base, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
@@ -826,13 +828,15 @@ class MainFrame(wx.Frame):
             prg_dia.set_pub(qps)
             prg_dia.ShowModal()
             self.Highlight()
-        
+
     def OnGridClick(self, event):
         qp = self.gt.all_ques[event.GetRow()]
-
         #对于不同的col,处理不一样
         col = event.GetCol()
 
+        #首先设置grid cursor
+        self.grid_ques.SetGridCursor(event.GetRow(), col)
+        
         if col == QuesGrid.QUES_BASE:
             dlg_base = BaseDialog(self)
             dlg_base.set_select()
