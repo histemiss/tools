@@ -144,6 +144,7 @@ class Sentense_cond(Sentense):
         #对于多选题后面是子题目的题号, 需要减一, 过滤条件是同时选择这些选项的, 使用'and'连接
         vs = c.split(',')
         q = vs[0]
+        #索引问题的选项,而不是结果偏移
         vs = vs[1:]
         
         #查找q对应的题目
@@ -153,6 +154,15 @@ class Sentense_cond(Sentense):
             raise None
         col_start = q.question.col.col_start
         col_width = q.question.col.col_width
+        
+        #先根据vs获取对应的options的option_key
+        ks = []
+        for i in vs:
+            idx = int(i)-1
+            if idx >= len(q.options):
+                print(u"过滤条件格式错误")
+                raise
+            ks.append(q.options[idx].option_key)
 
         #如果是多选, 找出子问题
         if q.question.type_ques == Sentense_ques.QUESTION_MULTI:
@@ -161,29 +171,27 @@ class Sentense_cond(Sentense):
             #Q,2,4 -> c01'1'.and.c03'1'
             # #Q,2,4 -> not.(c01'1'.and.c03'1')
             #如果是否定, 前面使用not.表示否定
-            if len(vs) > 1:
-                o_out = []
-                for i in vs:
-                    i_out = 'c' + str(col_start) + '.\'1\''
-                    o_out.append(i_out)
-                output = '.and.'.join(o_out)
-                if r_not:
-                    output = 'not.(' + output + ')'
-                return output
-            
-            #如果只有一个子题号, 像单选题一样处理
-            col_start += int(vs[0]) - 1
-            col_width = 1
-            vs = ['1',]
+            o_out = []
+            for i in ks:
+                #i是选项行中的数据,对应结果偏移
+                i_out = 'c' + str(col_start + i - 1) + '\'1\''
+                o_out.append(i_out)
+            output = '.and.'.join(o_out)
+            if r_not:
+                output = 'not.(' + output + ')'
+            return output
 
         #单选题
+        #ks直接使用，转换为字符串
+        ks = [str(i) for i in ks]
         if col_width == 1:
             #如果题目的结果使用1位, 使用简化的方式
             #如果Q是单选  Q,3 -> c0'3'
             #如果Q是多选  Q,3 -> c02'1'
             #如果是否定, 使用n  c0n'3'
             n_output = 'n' if r_not else ''
-            output = 'c' + str(col_start) + n_output + '\'' + ''.join(vs) + '\''
+            #ks是选项行中的值，直接拿过来
+            output = 'c' + str(col_start) + n_output + '\'' + ''.join(ks) + '\''
         else:
             #如果题目结果使用多位, 使用'eq'/'ne'的方式
             if len(vs) == 1:
@@ -191,12 +199,14 @@ class Sentense_cond(Sentense):
                 #Q,12 -> c0.eq.12
                 #如果是否定, 使用ne
                 eq_outp = 'ne' if r_not else 'eq'
-                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').' + eq_outp + '.' + vs[0]
+                #ks里面是选项行中的数据，直接使用
+                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').' + eq_outp + '.' + ks[0]
             else:
                 #多个值,使用'in'
                 #Q,10,20,99 -> c0.in.(10,20,99) 
                 #如果是否定, 千米使用not表示否定
-                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').in(' + ','.join(vs) + ')'
+                #ks是选项行的数据,直接使用
+                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').in(' + ','.join(ks) + ')'
                 if r_not:
                     output = 'not.' + output
 
