@@ -532,7 +532,8 @@ class MainFrame(wx.Frame):
         self.checkbox_grid = wx.CheckBox(self.pane_up, wx.ID_ANY, ("Grid"))
         self.checkbox_top2 = wx.CheckBox(self.pane_up, wx.ID_ANY, ("Top2"))
         self.checkbox_mean = wx.CheckBox(self.pane_up, wx.ID_ANY, ("Mean"))
-        self.checkbox_gene = wx.CheckBox(self.pane_up, wx.ID_ANY, ("普通"))
+        self.checkbox_loop = wx.CheckBox(self.pane_up, wx.ID_ANY, ("循环"))
+        self.checkbox_gene = wx.CheckBox(self.pane_up, wx.ID_ANY, ("其他"))
         self.button_filt = wx.Button(self.pane_up, wx.ID_ANY, (u"过滤条件"))
         self.button_base = wx.Button(self.pane_up, wx.ID_ANY, ("BASE"))
         self.button_pub = wx.Button(self.pane_up, wx.ID_ANY, (u"PUB文件"))
@@ -550,12 +551,17 @@ class MainFrame(wx.Frame):
         self.grid_ques.DisableCellEditControl()
         
         #buttion事件
+        #打开和保存
         self.Bind(wx.EVT_BUTTON, self.OnOpen, self.button_open)
         self.Bind(wx.EVT_BUTTON, self.OnSave, self.button_save)
-        #
+        #批量修改问题
         self.Bind(wx.EVT_BUTTON, self.OnModFilt, self.button_filt)
         self.Bind(wx.EVT_BUTTON, self.OnModBase, self.button_base)
         self.Bind(wx.EVT_BUTTON, self.OnModPub, self.button_pub)
+        #查询操作
+        self.Bind(wx.EVT_BUTTON, self.OnChooAll, self.button_choose)
+        self.Bind(wx.EVT_BUTTON, self.OnSearch, self.button_filter)
+        self.Bind(wx.EVT_BUTTON, self.OnReset, self.button_reset)
 
 
     def __set_properties(self):
@@ -588,7 +594,7 @@ class MainFrame(wx.Frame):
         sizer_left = wx.BoxSizer(wx.VERTICAL)
         sizer_left_down = wx.BoxSizer(wx.HORIZONTAL)
         sizer_left_down_value = wx.BoxSizer(wx.VERTICAL)
-        grid_left_down_value_spec = wx.FlexGridSizer(1, 4, 0, 0)
+        grid_left_down_value_spec = wx.FlexGridSizer(1, 5, 0, 0)
         sizer_left_down_label = wx.BoxSizer(wx.VERTICAL)
         sizer_left_up = wx.BoxSizer(wx.HORIZONTAL)
         sizer_left_up.Add(self.button_filter, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
@@ -618,12 +624,14 @@ class MainFrame(wx.Frame):
         grid_left_down_value_spec.Add(self.checkbox_grid, 0, wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 0)
         grid_left_down_value_spec.Add(self.checkbox_top2, 0, wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 0)
         grid_left_down_value_spec.Add(self.checkbox_mean, 0, wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 0)
+        grid_left_down_value_spec.Add(self.checkbox_loop, 0, wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 0)
         grid_left_down_value_spec.Add(self.checkbox_gene, 0, wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 0)
         grid_left_down_value_spec.AddGrowableRow(0)
         grid_left_down_value_spec.AddGrowableCol(0)
         grid_left_down_value_spec.AddGrowableCol(1)
         grid_left_down_value_spec.AddGrowableCol(2)
         grid_left_down_value_spec.AddGrowableCol(3)
+        grid_left_down_value_spec.AddGrowableCol(4)
         sizer_left_down_value.Add(grid_left_down_value_spec, 1, wx.EXPAND, 0)
         sizer_left_down.Add(sizer_left_down_value, 5, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
         sizer_left.Add(sizer_left_down, 0, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
@@ -648,9 +656,94 @@ class MainFrame(wx.Frame):
         self.Layout()
         # end wxGlade
 
+    def OnSearch(self, event):
+        #查询问题
+        var = self.text_ctrl_var.GetValue()
+        trunk = self.text_ctrl_trunk.GetValue()
+        base = self.text_ctrl_base.GetValue()
+        filt = self.text_ctrl_filt.GetValue()
+        var = None if var.strip() == '' else var.strip()
+        trunk = None if trunk.strip() == '' else trunk.strip()
+        base = None if base.strip() == '' else base.strip()
+        filt = None if filt.strip() == '' else filt.strip()
+
+        #checkbox
+        grid = self.checkbox_grid.GetValue()
+        top2 = self.checkbox_top2.GetValue()
+        mean = self.checkbox_mean.GetValue()
+        loop = self.checkbox_loop.GetValue()
+        gene = self.checkbox_gene.GetValue()
+        if grid and top2 and mean and gene and loop:
+            wx.MessageBox(u'不能把所有类型都隐藏', style=wx.OK)
+            return
+
+        qps = []
+        for qp in self.proj.all_ques_prg:
+            #先过滤checkbox
+            if qp.is_grid():
+                if grid:
+                    continue
+            elif qp.is_top2():
+                if top2:
+                    continue
+            elif qp.is_mean():
+                if mean :
+                    continue
+            elif qp.is_loop():
+                if loop :
+                    continue
+            else:
+                if gene:
+                    continue
+
+            #过滤var
+            if var:
+                q_var = qp.q.question.V_name
+                if q_var.find(var) == -1:
+                    continue
+            #trunk
+            if trunk:
+                q_trunk = qp.q.question.long_name
+                if q_trunk.find(trunk) == -1:
+                    continue
+            #base
+            if base:
+                q_base = qp.base
+                if q_base.find(base) == -1:
+                    continue
+            #过滤条件
+            if filt:
+                q_cond = qp.cond_prg
+                if not q_cond or q_cond.find(filt) == -1:
+                    continue
+
+            qps.append(qp)
+        self.gt.ResetQues(qps)
+        
+    def OnReset(self, event):
+        #清除查询, 和上面是对应的
+        #操作textctrl
+        self.text_ctrl_var.Clear()
+        self.text_ctrl_trunk.Clear()
+        self.text_ctrl_base.Clear()
+        self.text_ctrl_filt.Clear()
+        #checkbox
+        self.checkbox_grid.SetValue(False)
+        self.checkbox_top2.SetValue(False)
+        self.checkbox_mean.SetValue(False)
+        self.checkbox_loop.SetValue(False)
+        self.checkbox_gene.SetValue(False)
+        #重新把self.proj的所有问题给self.gt
+        self.gt.ResetQues(self.proj.all_ques_prg)
+
+    def OnChooAll(self, event):
+        #选中所有的
+        self.gt.checkboxes = [True] * self.gt.GetNumberRows()
+        self.grid_ques.SelectBlock(0, 0, self.gt.GetNumberRows()-1, self.gt.GetNumberCols()-1, False)
+
     def OnOpen(self, event):
         if self.proj is not None and self.proj.dirty :
-            res = wx.MessageBox(u"当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES | wx.CANCEL)
+            res = wx.MessageBox(u"当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES|wx.NO)
             if res != wx.YES:
                 return
 
