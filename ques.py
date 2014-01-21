@@ -800,8 +800,46 @@ class Project(object):
         lines.append('punchdefs=1320')
     
         self.write_lines('MAXIMA.QT', lines)
-    
 
+    def datamap(self):
+        #保存 datamap-style文件,文件名是datamap-style.csv
+        outputs = []
+        o = 'Name, Text, Type, precode, answer, start, len'
+        outputs.append(o)
+
+        for q in self.all_ques_q:
+            o = q.question.V_name + ',' + q.question.long_name + ','
+            if q.question.type_ques == Sentense_ques.QUESTION_SINGLE:
+                o += 'Single'
+            elif q.question.type_ques == Sentense_ques.QUESTION_MULTI:
+                o += 'Multiple'
+            else :
+                o += 'Number'
+            o += ','
+            #precode
+            o += ' ,'
+            #answer
+            o += ' ,'
+
+            col_start = q.question.col.col_start
+            col_width = q.question.col.col_width
+            if q.question.type_ques == Sentense_ques.QUESTION_MULTI:
+                o += ' , ,'
+            else:
+                o += '%d,%d' % (col_start, col_width)
+            outputs.append(o)
+
+            #选项, 只对于单选和多选有效
+            for opt in q.options:
+                o = ' , , , %d, %s,' % (opt.option_key, opt.option_name)
+                if q.question.type_ques == Sentense_ques.QUESTION_MULTI:
+                    o += '%d, 1' % (col_start+opt.option_key-1)
+                else:
+                    o += ' , '
+                outputs.append(o)
+
+        self.write_lines('datamap-style.csv', outputs)
+            
     def alias_qt_file(self):
         lines = []
         for i in self.base_dict:
@@ -817,6 +855,7 @@ class Project(object):
         self.prg_file()
         self.maxima_qt_file()
         self.alias_qt_file()
+        self.datamap()
 
         self.dirty = False
     
