@@ -153,8 +153,8 @@ class QuesGrid(wx.grid.PyGridTableBase):
         if len(self.all_ques) == 0:
             return u'没有数据'
 
-        pq = self.all_ques[row]
-        q = pq.q
+        qp = self.all_ques[row]
+        q = qp.q
         
         if col == QuesGrid.QUES_SEL:
             return self.checkboxes[row]
@@ -163,23 +163,23 @@ class QuesGrid(wx.grid.PyGridTableBase):
         elif col == QuesGrid.QUES_TRUNK:
             return q.question.long_name
         elif col == QuesGrid.QUES_FILT:
-            if q.condition:
-                return q.condition.output
+            if qp.cond_prg:
+                return qp.cond_prg
             return u'无'
         elif col == QuesGrid.QUES_VAR_LINE:
             return u'查看'
         elif col == QuesGrid.QUES_FEAT:
-            return ','.join(pq.features())
+            return ','.join(qp.features())
         elif col == QuesGrid.QUES_BASE:
-            return pq.base
+            return qp.base
         elif col == QuesGrid.QUES_RESU:
             return "%d,%d" % (q.question.col.col_start, q.question.col.col_width)
         elif col == QuesGrid.QUES_PRG:
             return u'查看'
         elif col == QuesGrid.QUES_PUB:
-            if len(pq.pub_fn) == 0:
+            if len(qp.pub_fn) == 0:
                 return u'无'
-            return pq.pub_fn
+            return qp.pub_fn
         
         return ''
 
@@ -524,7 +524,7 @@ class MainFrame(wx.Frame):
         self.button_reset = wx.Button(self.pane_up, wx.ID_ANY, (u"取消查询"))
         self.button_choose = wx.Button(self.pane_up, wx.ID_ANY, (u"全部选中"))
         self.button_open = wx.Button(self.pane_up, wx.ID_ANY, ("打开"))
-        self.button_filter_copy_1 = wx.Button(self.pane_up, wx.ID_ANY, ("保存"))
+        self.button_save = wx.Button(self.pane_up, wx.ID_ANY, ("保存"))
         self.text_ctrl_var = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
         self.text_ctrl_trunk = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
         self.text_ctrl_base = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
@@ -548,6 +548,14 @@ class MainFrame(wx.Frame):
         #grid事件
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.OnGridClick, self.grid_ques)
         self.grid_ques.DisableCellEditControl()
+        
+        #buttion事件
+        self.Bind(wx.EVT_BUTTON, self.OnOpen, self.button_open)
+        self.Bind(wx.EVT_BUTTON, self.OnSave, self.button_save)
+        #
+        self.Bind(wx.EVT_BUTTON, self.OnModFilt, self.button_filt)
+        self.Bind(wx.EVT_BUTTON, self.OnModBase, self.button_base)
+        self.Bind(wx.EVT_BUTTON, self.OnModPub, self.button_pub)
 
 
     def __set_properties(self):
@@ -588,7 +596,7 @@ class MainFrame(wx.Frame):
         sizer_left_up.Add(self.button_choose, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
         sizer_left_up.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
         sizer_left_up.Add(self.button_open, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
-        sizer_left_up.Add(self.button_filter_copy_1, 0, wx.ADJUST_MINSIZE, 0)
+        sizer_left_up.Add(self.button_save, 0, wx.ADJUST_MINSIZE, 0)
         sizer_left.Add(sizer_left_up, 0, wx.EXPAND, 0)
         static_line_left = wx.StaticLine(self.pane_up, wx.ID_ANY)
         sizer_left.Add(static_line_left, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 5)
@@ -641,7 +649,6 @@ class MainFrame(wx.Frame):
         # end wxGlade
 
     def OnOpen(self, event):
-
         if self.proj is not None and self.proj.dirty :
             res = wx.MessageBox(u"当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES | wx.CANCEL)
             if res != wx.YES:
@@ -674,9 +681,60 @@ class MainFrame(wx.Frame):
         dlg_base = BaseDialog(self)
         dlg_base.ShowModal()
 
+    def Highlight(self):
+        #高亮现实grid中的row, 用来重画
+        self.grid_ques.BeginBatch()
+        self.grid_ques.ClearSelection()
+        for i in range(len(self.gt.checkboxes)):
+            if self.gt.checkboxes[i]:
+                self.grid_ques.SelectRow(i, True)
+        self.grid_ques.EndBatch()
 
+    def OnModBase(self, event):
+        #批量修改base
+        dlg_base = BaseDialog(self)
+        dlg_base.set_select()
+        key = dlg_base.ShowModal()
+        if key != -1 :
+            key = dlg_base.selected_key
+            for i in range(len(self.gt.checkboxes)):
+                if self.gt.checkboxes[i]:
+                    self.gt.all_ques[i].base = key
+                    self.gt.all_ques[i].format()
+            self.Highlight()
+
+    def OnModFilt(self, event):
+        #必须有条件
+        qps = []
+        for i in range(len(self.gt.checkboxes)):
+            if self.gt.checkboxes[i] and self.gt.all_ques[i].cond_prg != None :
+                qps.append(self.gt.all_ques[i])
+        if len(qps) == 0:
+            wx.MessageBox(u"没有选中使用过滤条件的问题", style=wx.OK)
+            return 
+        dialog = wx.TextEntryDialog(None, u"输入新的过滤条件", u"修改过滤条件", '', style=wx.OK|wx.CANCEL)
+        if dialog.ShowModal() == wx.ID_OK:
+            cond = dialog.GetValue()
+            for i in range(len(self.gt.checkboxes)):
+                if self.gt.checkboxes[i] and self.gt.all_ques[i].cond_prg != None:
+                    self.gt.all_ques[i].cond_prg = cond
+            self.Highlight()
+
+    def OnModPub(self, event):
+        #构造qps
+        qps = []
+        for i in range(len(self.gt.checkboxes)):
+            if self.gt.checkboxes[i] and self.gt.all_ques[i].pub_fn != '':
+                qps.append(self.gt.all_ques[i])
+        #显示pub问题内容
+        if len(qps) > 0:
+            #必须有pub文件
+            prg_dia = TextDialog(self)
+            prg_dia.set_pub(qps)
+            prg_dia.ShowModal()
+            self.Highlight()
+        
     def OnGridClick(self, event):
-
         qp = self.gt.all_ques[event.GetRow()]
 
         #对于不同的col,处理不一样
@@ -686,10 +744,10 @@ class MainFrame(wx.Frame):
             dlg_base = BaseDialog(self)
             dlg_base.set_select()
             key = dlg_base.ShowModal()
-            if key == -1 :
-                return 
-            qp.base = dlg_base.selected_key
-            qp.format()
+            if key != -1 :
+                qp.base = dlg_base.selected_key
+                qp.format()
+
         elif col == QuesGrid.QUES_PRG:
             #显示prg问题内容
             prg_dia = TextDialog(self)
@@ -697,17 +755,17 @@ class MainFrame(wx.Frame):
             qps.append(qp)
             prg_dia.set_prg(qps)
             prg_dia.ShowModal()
+
         elif col == QuesGrid.QUES_PUB:
             #显示pub问题内容
-            if qp.pub_fn == '':
-                #没有pub文件
-                return 
-            prg_dia = TextDialog(self)
-            qps = []
-            qps.append(qp)
-            prg_dia.set_pub(qps)
-            prg_dia.ShowModal()
-            
+            if qp.pub_fn != '':
+                #必须有pub文件
+                prg_dia = TextDialog(self)
+                qps = []
+                qps.append(qp)
+                prg_dia.set_pub(qps)
+                prg_dia.ShowModal()
+    
         elif col == QuesGrid.QUES_VAR_LINE:
             #显示VAR内容
             lines = []
@@ -717,17 +775,23 @@ class MainFrame(wx.Frame):
                 lines.append(q.condition.string)
             for o in q.options:
                 lines.append(o.string)
-
             wx.MessageBox('\n'.join(lines), style=wx.OK)
-            return 
-        else:
-            #其他列都是选中操作
+        
+        elif col == QuesGrid.QUES_FILT:
+            #修改过滤条件
+            if qp.q.condition :
+                #必须有条件
+                dialog = wx.TextEntryDialog(None, u"输入新的过滤条件", u"修改过滤条件", qp.cond_prg, style=wx.OK|wx.CANCEL)
+                if dialog.ShowModal() == wx.ID_OK:
+                    qp.cond_prg = dialog.GetValue()
+
+        elif col == QuesGrid.QUES_SEL:
             self.gt.checkboxes[event.GetRow()] = not self.gt.checkboxes[event.GetRow()]
-            self.grid_ques.SelectBlock(event.GetRow(), 0, event.GetRow(), self.grid_ques.GetNumberCols()-1, False)
+
+        #高亮显示,来刷新cell
+        self.grid_ques.SelectBlock(event.GetRow(), 0, event.GetRow(), self.grid_ques.GetNumberCols()-1, False)
 
             
-        
-
 # end of class MainFrame
 if __name__ == "__main__":
     gettext.install("NToQ") # replace with the appropriate catalog name

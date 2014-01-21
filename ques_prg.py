@@ -48,6 +48,19 @@ class Question_P(object):
                 o.append(i)
         return o
 
+    def refresh_cond(self):
+        #当更新问题的过滤条件之后使用
+        #只有普通问题和循环才有, 而且外面需要过滤掉不使用的
+        if not self.cond_prg :
+            print(u"严重错误")
+            raise
+        self.update_cond(self)
+        self.format()
+
+    def update_cond(self):
+        #直接重新构造头部
+        self.init_head()
+
     #保存所有结果
     all_ques = []
 
@@ -55,7 +68,12 @@ class Question_P(object):
         #q是Question, t是类型
         self.q = q
         self.type = t
-
+        
+        #单独记录过滤条件, 直接操作这个变量
+        self.cond_prg = None
+        if not (self.is_grid() or self.is_top2() or self.is_mean()) and q.condition != None:
+            self.cond_prg = q.condition.cond_prg
+            
         #题目的轴名字, 包含'l'和题号Q_name, 可能包含条件
         self.l = ''
         #题目的描述, 题目表示, 'n23'开头, 使用long_name
@@ -84,7 +102,7 @@ class Question_P(object):
         #构造轴名字
         self.l = 'l ' + self.q.question.P_name
         if self.q.condition :
-            self.l += self.q.condition.output
+            self.l += ';c=' + self.cond_prg
 
         #构造题干描述
         self.desc = 'n23' + self.q.question.long_name
@@ -232,11 +250,14 @@ class Question_P_Loop(Question_P):
         #定义include命令
         self.include = '*include ' + self.pub_fn
         if self.q.condition:
-            self.include += ';b=' + self.q.question.condition.output
+            self.include += ';b=' + self.cond_prg
         self.include += ';col(a)=' + str(self.q.question.col.col_start)
         self.include += ';x=' + self.q.question.P_name
         self.include += ';y=' + self.q.question.long_name
 
+    def update_cond(self):
+        #对于循环的问题, 更新include
+        self.init_include()
 
 class Question_P_Loop_Single(Question_P_Loop):
     def __init__(self, q):

@@ -122,7 +122,7 @@ class Sentense(object):
 class Sentense_cond(Sentense):
     def __init__(self, ts = [], s = '', l = -1):
         super(Sentense_cond, self).__init__(ts, s, l, Sentense.SENTENSE_CONDITION)
-        self.output = None
+        self.cond_prg = None
 
     def cond_ques_expr(self, c):
         #使用题号的判断表达式: 'V2130,1'  前面可能带有#, 后面可能带有多个','
@@ -295,7 +295,7 @@ class Sentense_cond(Sentense):
             print(u'条件解析错误:', self.string)
             raise None
         
-        self.output = ';c=' + o
+        self.cond_prg = o
 
 
 #这一行是题目,解析
