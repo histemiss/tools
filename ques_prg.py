@@ -107,8 +107,8 @@ class Question_P(object):
         #构造题干描述
         self.desc = 'n23' + self.q.question.long_name
 
-        #构造base命令
-        self.base = 'base1'
+        #构造base命令, 统一构造
+        #self.base = 'base1'
 
     def init_single_options(self):
         #初始化单选题的选项
@@ -244,7 +244,7 @@ class Question_P_Loop(Question_P):
             #可能覆盖没条件的pub文件
             self.pub_fn = self.q.question.Q_name + '-c.pub'
         self.desc = 'n23&y'
-        self.base = 'base1'
+        #self.base = 'base1'
 
     def init_include(self):
         #定义include命令
@@ -392,7 +392,7 @@ class Question_P_Grid(Question_P):
 
         self.side = 'side'
         self.desc = 'n23' + self.q.question.Q_name + ' - GRID'
-        self.base = 'base1'
+        #self.base = 'base1'
 
 class Question_P_Grid_Number(Question_P_Grid):
     def __init__(self, q):
@@ -485,6 +485,10 @@ class Question_P_Top2(Question_P):
     #所有的top2的类的父类
     def __init__(self, q, t):
         super(Question_P_Top2, self).__init__(q, t)
+
+    def format(self):
+        
+        
 
 class Question_P_Mean(Question_P):
     #所有的top2的类的父类

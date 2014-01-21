@@ -457,9 +457,9 @@ class Question(object):
 class Project(object):
     #全局变量
     def __init__(self, var_fn):
-        #所有的prg问题
+        #所有的prg问题 Question_P
         self.all_ques_prg = []
-        #所有的q问题
+        #所有的q问题 Question
         self.all_ques_q = []
         #q问题,根据var名字索引,在过滤条件中使用
         self.ques_v_dict = {}
@@ -537,6 +537,49 @@ class Project(object):
                 for c in range(len(qs)):
                     qs[c].question.P_name += '_' + str(c+1)
 
+    def select_bases(self):
+        #遍历所有的prg问题,检查对应的Q问题
+        #对于没有使用过滤条件的,设置base1
+        #对于使用的收集过滤条件行
+
+        default_base_key = 'base1'
+        #后面从base2开始
+        base_index = 2
+        #所有的base的key/value的值
+        self.base_dict = {default_base_key : u"符合条件的被访者"}
+
+        #使用过滤条件的字符串索引所有的base的key
+        cond_base_dict = {}
+        for qp in self.all_ques_prg:
+            if not qp.q.condition:
+                qp.base = default_base_key
+            else:
+                #找到对应的q, 获取过滤条件行的字符创
+                s = qp.q.condition.string
+                #找到:
+                colon = s.find(':')
+                if colon == -1:
+                    #这时可以不必分析
+                    if s in cond_base_dict:
+                        qp.base = cond_base_dict[s]
+                    else:
+                        qp.base = default_base_key
+                else:
+                    base_cond = s[0:colon]
+                    base_value = s[colon + 1:].strip()
+                    #检查是否有重复的base_key
+                    base_key = ''
+                    if base_cond in cond_base_dict:
+                        base_key = cond_base_dict[base_cond]
+                    else:
+                        #构造一个新的
+                        base_key = 'base%d' % base_index
+                        base_index += 1
+                        #查到新的base
+                        cond_base_dict[base_cond] = base_key
+                        self.base_dict[base_key] = base_value
+                    qp.base = base_key
+
     def parse_file(self):
 
         f = self.read_open(self.var_fn)
@@ -570,7 +613,7 @@ class Project(object):
                 raise None
             
             if s.type == Sentense.SENTENSE_QUESTION :
-                #当前行是问题, 前一个问题结束
+                #当前行是题干, 前一个问题结束
                 if q:
                     q.var_end = l
                     self.add_question(q)
@@ -639,6 +682,9 @@ class Project(object):
                 else:
                     qp = Question_P_Grid_Number(q)
                 self.all_ques_prg.append(qp)
+
+        #采集base信息
+        self.select_bases()
 
         #转化后的问题
         for q in self.all_ques_prg:
@@ -751,7 +797,7 @@ class Project(object):
     def alias_qt_file(self):
         lines = []
         for i in self.base_dict:
-            o = ("%s %s") % (i, base_dict[i])
+            o = (" %s sfsdfsa %s") % (i, self.base_dict[i])
             lines.append(o)
         
         self.write_lines('ALIAS.QT', lines)
