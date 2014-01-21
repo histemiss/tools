@@ -448,7 +448,7 @@ class TextDialog(wx.Dialog):
         else:
             #prg文件将使用单独的文件名
             #新的pub文件名是第一个问题的P_name
-            new_fn = qps[0].q.question.P_name + '.pub'
+            new_fn = self.qps[0].q.question.P_name + '.pub'
             pub_lines= self.text_ctrl.GetValue().split('\n')
             for q in self.qps:
                 q.pub_fn = new_fn
