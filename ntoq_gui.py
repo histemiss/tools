@@ -546,6 +546,9 @@ class MainFrame(wx.Frame):
         self.__do_layout()
         # end wxGlade
 
+        #splitterwindows事件
+        self.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGING, self.OnSplit, self.window_spli)
+
         #grid事件
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.OnGridClick, self.grid_ques)
         
@@ -658,7 +661,24 @@ class MainFrame(wx.Frame):
         self.Layout()
         # end wxGlade
 
+        #设置splitterwindows的sizer
+        s = sizer_up.CalcMin()
+        #pdb.set_trace()
+        self.pane_up.SetMaxSize((-1, s.y))
+        self.window_spli.SetSashGravity(0)
+        self.window_spli.SetSashPosition(s.y)
+        self.window_spli.SetMinimumPaneSize(60)
+        
+
+    def OnSplit(self, event):
+        #pdb.set_trace()
+        if event.GetSashPosition() > self.pane_up.GetMaxSize().y:
+            self.window_spli.SetSashPosition(self.pane_up.GetMaxSize().y-2)
+            event.Veto()
+
     def OnSearch(self, event):
+        if len(self.gt.checkboxes) == 0:
+            return 
         #查询问题
         var = self.text_ctrl_var.GetValue()
         trunk = self.text_ctrl_trunk.GetValue()
@@ -736,9 +756,12 @@ class MainFrame(wx.Frame):
         self.checkbox_loop.SetValue(False)
         self.checkbox_gene.SetValue(False)
         #重新把self.proj的所有问题给self.gt
-        self.gt.ResetQues(self.proj.all_ques_prg)
+        if self.proj:
+            self.gt.ResetQues(self.proj.all_ques_prg)
 
     def OnChooAll(self, event):
+        if len(self.gt.checkboxes) == 0:
+            return 
         #选中所有的
         self.gt.checkboxes = [True] * self.gt.GetNumberRows()
         self.grid_ques.SelectBlock(0, 0, self.gt.GetNumberRows()-1, self.gt.GetNumberCols()-1, False)
@@ -786,6 +809,8 @@ class MainFrame(wx.Frame):
         self.grid_ques.EndBatch()
 
     def OnModBase(self, event):
+        if len(self.gt.checkboxew) == 0:
+            return 
         #批量修改base
         dlg_base = BaseDialog(self)
         dlg_base.set_select()
@@ -799,6 +824,8 @@ class MainFrame(wx.Frame):
             self.Highlight()
 
     def OnModFilt(self, event):
+        if len(self.gt.checkboxew) == 0:
+            return 
         #必须有条件
         qps = []
         for i in range(len(self.gt.checkboxes)):
