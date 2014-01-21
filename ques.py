@@ -683,6 +683,14 @@ class Project(object):
                     qp = Question_P_Grid_Number(q)
                 self.all_ques_prg.append(qp)
 
+                #对于数字和单选题，添加top2/mean题目
+                if t in [Sentense_ques.QUESTION_SINGLE, Sentense_ques.QUESTION_NUMBER]:
+                    qp = Question_P_Top2(q)
+                    self.all_ques_prg.append(qp)
+                    
+                    qp = Question_P_Mean(q)
+                    self.all_ques_prg.append(qp)
+
         #采集base信息
         self.select_bases()
 

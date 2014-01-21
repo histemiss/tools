@@ -11,21 +11,22 @@ class Question_P(object):
     QUESTION_OUTPUT_GRID_SINGLE = 6
     QUESTION_OUTPUT_GRID_MULTI = 7
     QUESTION_OUTPUT_GRID_NUMBER = 8
+    QUESTION_OUTPUT_TOP2 = 9
+    QUESTION_OUTPUT_MEAN = 10
+    
+    ''' top2和mean题不分子类型
     QUESTION_OUTPUT_TOP2_NUMBER = 9
     QUESTION_OUTPUT_TOP2_MULTI = 10
     QUESTION_OUTPUT_TOP2_SINGLE = 11
     QUESTION_OUTPUT_MEAN_NUMBER = 12
     QUESTION_OUTPUT_MEAN_SINGLE = 13
     QUESTION_OUTPUT_MEAN_MULTI = 14
+    '''
 
     feat_dict = {
-        u'单选':[QUESTION_OUTPUT_SINGLE, QUESTION_OUTPUT_LOOP_SINGLE, QUESTION_OUTPUT_GRID_SINGLE, QUESTION_OUTPUT_TOP2_SINGLE, QUESTION_OUTPUT_MEAN_SINGLE], 
-        u'多选':[QUESTION_OUTPUT_MULTI, QUESTION_OUTPUT_LOOP_MULTI, QUESTION_OUTPUT_GRID_MULTI, QUESTION_OUTPUT_TOP2_MULTI, QUESTION_OUTPUT_MEAN_MULTI], 
-        u'数字':[QUESTION_OUTPUT_NUMBER, QUESTION_OUTPUT_LOOP_NUMBER, QUESTION_OUTPUT_GRID_NUMBER, QUESTION_OUTPUT_TOP2_NUMBER, QUESTION_OUTPUT_MEAN_NUMBER], 
-        u'循环':[QUESTION_OUTPUT_LOOP_MULTI, QUESTION_OUTPUT_LOOP_SINGLE, QUESTION_OUTPUT_LOOP_NUMBER],
-        'GRID':[QUESTION_OUTPUT_GRID_SINGLE, QUESTION_OUTPUT_GRID_MULTI, QUESTION_OUTPUT_GRID_NUMBER],
-        'TOP2':[QUESTION_OUTPUT_TOP2_SINGLE, QUESTION_OUTPUT_TOP2_MULTI, QUESTION_OUTPUT_TOP2_NUMBER],
-        'MEAN':[QUESTION_OUTPUT_MEAN_SINGLE, QUESTION_OUTPUT_MEAN_MULTI, QUESTION_OUTPUT_MEAN_NUMBER],
+        u'单选':[QUESTION_OUTPUT_SINGLE, QUESTION_OUTPUT_LOOP_SINGLE, QUESTION_OUTPUT_GRID_SINGLE], 
+        u'多选':[QUESTION_OUTPUT_MULTI, QUESTION_OUTPUT_LOOP_MULTI, QUESTION_OUTPUT_GRID_MULTI],
+        u'数字':[QUESTION_OUTPUT_NUMBER, QUESTION_OUTPUT_LOOP_NUMBER, QUESTION_OUTPUT_GRID_NUMBER],
         }
 
     def is_loop(self):
@@ -43,6 +44,15 @@ class Question_P(object):
     def features(self):
         #根据type计算属性
         o = []
+        if self.is_loop():
+            o.append(u'循环')
+        if self.is_grid():
+            o.append(u'GRID')
+        if self.is_top2():
+            o.append(u'TOP2')
+        if self.is_mean():
+            o.append(u'MEAN')
+        
         for i in Question_P.feat_dict:
             if self.type in Question_P.feat_dict[i]:
                 o.append(i)
@@ -482,16 +492,61 @@ class Question_P_Grid_Multi(Question_P_Grid):
         self.outputs.append(self.include)
 
 class Question_P_Top2(Question_P):
-    #所有的top2的类的父类
-    def __init__(self, q, t):
-        super(Question_P_Top2, self).__init__(q, t)
+    #top2问题不再区分子类型
+    def __init__(self, q):
+        super(Question_P_Top2, self).__init__(q, Question_P.QUESTION_OUTPUT_TOP2)
 
+        #
+        self.l = 'l ' + q.question.Q_name + 't'
+        self.desc = 'n23' + q.question.Q_name + '.TOP2'
+        #base
+        self.cols = []
+        qs = self.q.get_ques_q()
+        for i in qs:
+            col = i.question.col.col_start
+            o = '*include top2.pub;col(a0)=' + str(col) + ';y=' + i.question.long_name
+            self.cols.append(o)
+
+        self.pub_fn = 'top2.pub'
+        self.pub_lines =[ "n01&y;c=ca0'45'",]
+        
     def format(self):
-        
-        
+        self.pub_fn = 'top2.pub'
+        self.pub_lines =[ "n01&y;c=ca0'45'",]
 
+        self.outputs = []
+        self.outputs.append(self.l)
+        self.outputs.append(self.desc)
+        self.outputs.append(self.base)
+        for o in self.cols:
+            self.outputs.append(o)
+        
 class Question_P_Mean(Question_P):
-    #所有的top2的类的父类
-    def __init__(self, q, t):
-        super(Question_P_Mean, self).__init__(q, t)
+    def __init__(self, q):
+        super(Question_P_Mean, self).__init__(q, Question_P.QUESTION_OUTPUT_MEAN)
 
+        #
+        self.l = 'l ' + q.question.Q_name + 'm'
+        self.desc = 'n23' + q.question.Q_name + '.MEAN'
+        #base
+        self.cols = []
+        qs = self.q.get_ques_q()
+        for i in qs:
+            col = i.question.col.col_start
+            o = '*include mean.pub;col(a0)=' + str(col) + ';y=' + i.question.long_name
+            self.cols.append(o)
+
+        self.pub_fn = 'mean.pub'
+        self.pub_lines =[ "n25;inc=ca0", "n12&y;dec=2"]
+        
+    def format(self):
+        self.pub_fn = 'mean.pub'
+        self.pub_lines =[ "n25;inc=ca0", "n12&y;dec=2"]
+
+        self.outputs = []
+        self.outputs.append(self.l)
+        self.outputs.append(self.desc)
+        self.outputs.append(self.base)
+        for o in self.cols:
+            self.outputs.append(o)
+        
