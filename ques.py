@@ -546,7 +546,10 @@ class Project(object):
         #后面从base2开始
         base_index = 2
         #所有的base的key/value的值
-        self.base_dict = {default_base_key : u"符合条件的被访者"}
+        self.base_dict = {default_base_key : u"N10基数：所有被访者;nocol;noexport",
+                          "tots": u"n05合计;nocol;nonz",
+                          "totm": u"n01合计;c=+;nocol;nosort;noexport;nonz"
+                          }
 
         #使用过滤条件的字符串索引所有的base的key
         cond_base_dict = {}
@@ -591,18 +594,34 @@ class Project(object):
         l = 0
 
         while True:
-            s = f.readline()
-            if not s :
-                break 
+            s = ''
+            while True:
+                t = f.readline()
+                if not t :
+                    break 
 
-            s = s.decode('gbk')
-            l += 1
-    
-            #过滤掉空行
-            r = re.compile('\s*')
-            if len(r.sub('', s)) == 0:
-                continue
-    
+                t = t.decode('gbk')
+                l += 1
+
+                #过滤掉空行
+                r = re.compile('\s*$')
+                t = r.sub('', t)
+                if len(t) == 0:
+                    continue
+
+                #'\'结尾的行
+                if t[-1] == '\\':
+                    t = t[:-1]
+                    s += t
+                    continue
+                else:
+                    s += t
+                    break
+
+            if len(s) == 0:
+                #没有数据退出
+                break
+
             #print('sentense: %s' % s)
             s = parse_sentense(s, l)
     
@@ -843,7 +862,7 @@ class Project(object):
     def alias_qt_file(self):
         lines = []
         for i in self.base_dict:
-            o = (" %s sfsdfsa %s") % (i, self.base_dict[i])
+            o = (" %s %s") % (i, self.base_dict[i])
             lines.append(o)
         
         self.write_lines('ALIAS.QT', lines)

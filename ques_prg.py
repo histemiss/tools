@@ -471,7 +471,7 @@ class Question_P_Grid_Multi(Question_P_Grid):
         self.tail = 'totm'
         
         #头部使用Question_P_Grid的方法
-        super(Question_P_Grid_Single, self).init_grid()
+        super(Question_P_Grid_Multi, self).init_grid()
         #include命令
         self.include = '*include ' + self.pub_fn
 
