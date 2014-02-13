@@ -87,7 +87,7 @@ class Question_P(object):
         #题目的轴名字, 包含'l'和题号Q_name, 可能包含条件
         self.l = ''
         #题目的描述, 题目表示, 'n23'开头, 使用long_name
-        self.des = ''
+        self.desc = ''
         #题目的base, 索引ALIAS.QT文件
         self.base = ''
 

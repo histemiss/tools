@@ -717,9 +717,7 @@ class Project(object):
         for q in self.all_ques_prg:
             q.format()
                     
-    def axe_tab_file(self, outp_dir):
-        #更新全局参数
-        self.outp_dir = outp_dir
+    def axe_tab_file(self):
 
         #生成axe文件
         axe_f = self.write_open(self.outp_dir + '/axe.prg')
@@ -741,10 +739,10 @@ class Project(object):
             o = 'tab '
             if qp.is_grid():
                 o += qp.q.question.Q_name + ' grid'
-            elif qp.is_top2():
-                o += qp.q.question.Q_name + ' tops'
-            elif qp.is_mean():
-                o += qp.q.question.Q_name + ' mean'
+            #elif qp.is_top2():
+            #    o += qp.q.question.Q_name + ' tops'
+            #elif qp.is_mean():
+            #    o += qp.q.question.Q_name + ' mean'
             else:
                 o += qp.q.question.P_name + ' ban1'
     
@@ -800,6 +798,11 @@ class Project(object):
     
 
     def prg_file(self):
+        #可以单独生成col.prg文件
+        #如果已经存在col.prg文件,不会覆盖掉
+        if os.path.isfile(self.outp_dir + '/col.prg'):
+           return
+ 
         lines = []
         lines.append('l ban1')
         lines.append('n10Total')
@@ -867,8 +870,11 @@ class Project(object):
         
         self.write_lines('ALIAS.QT', lines)
 
-    def save_prg(self, outp_dir):
-        self.axe_tab_file(outp_dir)
+    def save_prg(self, outp_dir = ''):
+        if len(outp_dir) != 0:
+            self.outp_dir = outp_dir
+
+        self.axe_tab_file()
         self.bat_file()
         self.prn_file()
         self.prg_file()
@@ -877,6 +883,42 @@ class Project(object):
         self.datamap()
 
         self.dirty = False
+
+    def save_col_prg(self, qps, outp_dir = ''):
+        if len(qps) == 0:
+            return
+
+        if len(self.outp_dir) == 0:
+            self.outp_dir = outp_dir
+
+        #生成axe文件
+        col_f = self.write_open(self.outp_dir + '/col.prg')
+
+        #遍历所有的问题
+        for qp in qps:
+            lines = []
+
+            #描述行
+            lines.append(qp.desc)
+            
+            #选项行
+            if qp.type == Question_P.QUESTION_OUTPUT_SINGLE:
+                lines.append(qp.col)
+                lines += qp.options
+            elif qp.type == Question_P.QUESTION_OUTPUT_MULTI:
+                #选项需要展开
+                for o in qp.q.options:
+                    o = 'n01' + o.option_name + ';c=c' + str(qp.q.question.col.col_start + o.option_key-1) + '\'1\''
+                    lines.append(o)
+            else:
+                continue
+
+            col_f.write((CRLF.join(lines)).encode('gbk'))
+            col_f.write(CRLF.encode('gbk'))
+            col_f.write(CRLF.encode('gbk'))
+
+        col_f.close()
+            
     
     #读打开文件，不需要转义回车
     def write_open(self, fn):
