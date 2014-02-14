@@ -797,18 +797,6 @@ class Project(object):
         self.write_lines('1.prn', lines)
     
 
-    def prg_file(self):
-        #可以单独生成col.prg文件
-        #如果已经存在col.prg文件,不会覆盖掉
-        if os.path.isfile(self.outp_dir + '/col.prg'):
-           return
- 
-        lines = []
-        lines.append('l ban1')
-        lines.append('n10Total')
-    
-        self.write_lines('col.prg', lines)
-    
     def maxima_qt_file(self):
         lines = []
         lines.append('axes=12000')
@@ -870,17 +858,17 @@ class Project(object):
         
         self.write_lines('ALIAS.QT', lines)
 
-    def save_prg(self, outp_dir = ''):
+    def save_prg(self, qps, outp_dir = ''):
         if len(outp_dir) != 0:
             self.outp_dir = outp_dir
 
         self.axe_tab_file()
         self.bat_file()
         self.prn_file()
-        self.prg_file()
         self.maxima_qt_file()
         self.alias_qt_file()
         self.datamap()
+        self.save_col_prg(self, qps)
 
         self.dirty = False
 
@@ -893,6 +881,12 @@ class Project(object):
 
         #生成axe文件
         col_f = self.write_open(self.outp_dir + '/col.prg')
+        lines = []
+        lines.append('l ban1')
+        lines.append('n10Total')
+        col_f.write((CRLF.join(lines)).encode('gbk'))
+        col_f.write(CRLF.encode('gbk'))
+        col_f.write(CRLF.encode('gbk'))
 
         #遍历所有的问题
         for qp in qps:

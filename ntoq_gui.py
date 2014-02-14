@@ -798,7 +798,15 @@ class MainFrame(wx.Frame):
                 outp_dir = prg_dir.strip()
             else:
                 return
-        self.proj.save_prg(outp_dir)
+
+        #收集选中的问题
+        #构造qps
+        qps = []
+        for i in range(len(self.gt.checkboxes)):
+            if self.gt.checkboxes[i] :
+                qps.append(self.gt.all_ques[i])
+
+        self.proj.save_prg(qps, outp_dir)
 
     def OnSaveCol(self, event):
         if self.proj == None:
