@@ -518,14 +518,16 @@ class MainFrame(wx.Frame):
 
         self.window_spli = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_3DSASH)
         self.pane_up = wx.ScrolledWindow(self.window_spli, wx.ID_ANY, style=wx.SUNKEN_BORDER | wx.TAB_TRAVERSAL)
+        
+        #文件操作
+        self.button_open = wx.Button(self.pane_up, wx.ID_ANY, (u"打开"))
+        self.button_save = wx.Button(self.pane_up, wx.ID_ANY, (u"保存"))
+        self.button_base_dict = wx.Button(self.pane_up, wx.ID_ANY, (u"修改base字典"))
 
         #查询操作
         self.button_filter = wx.Button(self.pane_up, wx.ID_ANY, (u"查询问题"))
         self.button_reset = wx.Button(self.pane_up, wx.ID_ANY, (u"取消查询"))
         self.button_choose = wx.Button(self.pane_up, wx.ID_ANY, (u"全部选中"))
-        self.button_open = wx.Button(self.pane_up, wx.ID_ANY, (u"打开"))
-        self.button_save = wx.Button(self.pane_up, wx.ID_ANY, (u"保存"))
-        self.button_save_col = wx.Button(self.pane_up, wx.ID_ANY, (u"保存col"))
         self.text_ctrl_var = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
         self.text_ctrl_trunk = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
         self.text_ctrl_base = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
@@ -535,9 +537,11 @@ class MainFrame(wx.Frame):
         self.checkbox_mean = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"Mean"))
         self.checkbox_loop = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"循环"))
         self.checkbox_gene = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"其他"))
-        self.button_filt = wx.Button(self.pane_up, wx.ID_ANY, (u"过滤条件"))
-        self.button_base = wx.Button(self.pane_up, wx.ID_ANY, (u"BASE"))
-        self.button_pub = wx.Button(self.pane_up, wx.ID_ANY, (u"PUB文件"))
+
+        #批量修改问题
+        self.button_filt = wx.Button(self.pane_up, wx.ID_ANY, (u"修改过滤条件"))
+        self.button_base = wx.Button(self.pane_up, wx.ID_ANY, (u"修改BASE"))
+        self.button_pub = wx.Button(self.pane_up, wx.ID_ANY, (u"修改PUB文件"))
         
         #grid
         self.pane_down = wx.ScrolledWindow(self.window_spli, wx.ID_ANY, style=wx.SUNKEN_BORDER | wx.TAB_TRAVERSAL)
@@ -557,7 +561,7 @@ class MainFrame(wx.Frame):
         #打开和保存
         self.Bind(wx.EVT_BUTTON, self.OnOpen, self.button_open)
         self.Bind(wx.EVT_BUTTON, self.OnSave, self.button_save)
-        self.Bind(wx.EVT_BUTTON, self.OnSaveCol, self.button_save_col)
+        self.Bind(wx.EVT_BUTTON, self.OnBase, self.button_base_dict)
         #批量修改问题
         self.Bind(wx.EVT_BUTTON, self.OnModFilt, self.button_filt)
         self.Bind(wx.EVT_BUTTON, self.OnModBase, self.button_base)
@@ -572,11 +576,13 @@ class MainFrame(wx.Frame):
         # begin wxGlade: MainFrame.__set_properties
         self.SetTitle(("NToQ"))
         self.SetSize((829, 732))
+
         self.frame_main_statusbar.SetStatusWidths([-1, 0])
         # statusbar fields
-        frame_main_statusbar_fields = [("VAR"), ("saved")]
+        frame_main_statusbar_fields = [("VAR"), (u"没保存")]
         for i in range(len(frame_main_statusbar_fields)):
             self.frame_main_statusbar.SetStatusText(frame_main_statusbar_fields[i], i)
+
         self.pane_up.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.pane_up.SetScrollRate(0, 0)
 
@@ -596,8 +602,22 @@ class MainFrame(wx.Frame):
         sizer_down = wx.BoxSizer(wx.HORIZONTAL)
         sizer_up = wx.BoxSizer(wx.HORIZONTAL)
 
-        sizer_right = wx.BoxSizer(wx.VERTICAL)
-        sizer_right_down = wx.BoxSizer(wx.VERTICAL)
+        #左边文件操作
+        sizer_left_file = wx.BoxSizer(wx.VERTICAL)
+        label_left_file = wx.StaticText(self.pane_up, wx.ID_ANY, (u"文件操作"), style=wx.ALIGN_CENTRE)
+        sizer_left_file.Add(label_left_file, 0, wx.ALL | wx.EXPAND | wx.ADJUST_MINSIZE, 11)
+        sizer_left_file_buttons = wx.BoxSizer(wx.VERTICAL)
+        sizer_left_file_buttons.Add(self.button_open, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
+        sizer_left_file_buttons.Add(self.button_save, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
+        sizer_left_file_buttons.Add(self.button_base_dict, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
+        sizer_left_file.Add(sizer_left_file_buttons, 1, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL, 0)
+        sizer_up.Add(sizer_left_file, 0, wx.LEFT | wx.TOP | wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL, 20)
+
+        #隔离线
+        static_line_left = wx.StaticLine(self.pane_up, wx.ID_ANY, style=wx.LI_VERTICAL)
+        sizer_up.Add(static_line_left, 0, wx.RIGHT | wx.TOP | wx.EXPAND, 10)
+
+        #中间查询
         sizer_left = wx.BoxSizer(wx.VERTICAL)
         sizer_left_down = wx.BoxSizer(wx.HORIZONTAL)
         sizer_left_down_value = wx.BoxSizer(wx.VERTICAL)
@@ -608,9 +628,6 @@ class MainFrame(wx.Frame):
         sizer_left_up.Add(self.button_reset, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
         sizer_left_up.Add(self.button_choose, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
         sizer_left_up.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
-        sizer_left_up.Add(self.button_open, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
-        sizer_left_up.Add(self.button_save, 0, wx.ADJUST_MINSIZE, 0)
-        sizer_left_up.Add(self.button_save_col, 0, wx.ADJUST_MINSIZE, 0)
         sizer_left.Add(sizer_left_up, 0, wx.EXPAND, 0)
         static_line_left = wx.StaticLine(self.pane_up, wx.ID_ANY)
         sizer_left.Add(static_line_left, 0, wx.TOP | wx.BOTTOM | wx.EXPAND, 5)
@@ -643,16 +660,23 @@ class MainFrame(wx.Frame):
         sizer_left_down_value.Add(grid_left_down_value_spec, 1, wx.EXPAND, 0)
         sizer_left_down.Add(sizer_left_down_value, 5, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
         sizer_left.Add(sizer_left_down, 0, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
-        sizer_up.Add(sizer_left, 1, wx.LEFT | wx.TOP | wx.EXPAND, 20)
+        sizer_up.Add(sizer_left, 1, wx.TOP | wx.EXPAND, 20)
+
+        #中间隔离线
         static_line_middle = wx.StaticLine(self.pane_up, wx.ID_ANY, style=wx.LI_VERTICAL)
         sizer_up.Add(static_line_middle, 0, wx.LEFT | wx.TOP | wx.EXPAND, 10)
-        label_right_up = wx.StaticText(self.pane_up, wx.ID_ANY, (u"批量修改题目"), style=wx.ALIGN_CENTRE)
+
+        #右边批量修改问题
+        sizer_right = wx.BoxSizer(wx.VERTICAL)
+        label_right_up = wx.StaticText(self.pane_up, wx.ID_ANY, (u"批量问题操作"), style=wx.ALIGN_CENTRE)
         sizer_right.Add(label_right_up, 0, wx.ALL | wx.EXPAND | wx.ADJUST_MINSIZE, 11)
+        sizer_right_down = wx.BoxSizer(wx.VERTICAL)
         sizer_right_down.Add(self.button_filt, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
         sizer_right_down.Add(self.button_base, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
         sizer_right_down.Add(self.button_pub, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
         sizer_right.Add(sizer_right_down, 1, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL, 0)
         sizer_up.Add(sizer_right, 0, wx.RIGHT | wx.TOP | wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL, 20)
+
         self.pane_up.SetSizer(sizer_up)
 
         #grid
@@ -807,31 +831,6 @@ class MainFrame(wx.Frame):
                 qps.append(self.gt.all_ques[i])
 
         self.proj.save_prg(qps, outp_dir)
-
-    def OnSaveCol(self, event):
-        if self.proj == None:
-            wx.MessageBox(u'还没有打开VAR文件', style=wx.OK)
-            return 
-
-        #构造qps
-        qps = []
-        for i in range(len(self.gt.checkboxes)):
-            if self.gt.checkboxes[i] :
-                qps.append(self.gt.all_ques[i])
-        if len(qps) == 0:
-            wx.MessageBox(u'没有选中题目', style = wx.OK)
-            return 
-
-        outp_dir = self.proj.outp_dir
-        if len(outp_dir) == 0:
-            #选择目录
-            prg_dir = wx.DirSelector(u"选择保存位置...")
-            if prg_dir.strip():
-                outp_dir = prg_dir.strip()
-            else:
-                return
-
-        self.proj.save_col_prg(qps, outp_dir)
 
     def OnBase(self, event):
         if not self.proj:

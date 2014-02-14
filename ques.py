@@ -38,7 +38,7 @@ class Token(object) :
     token_str = {
         TOKEN_SINGLE: '\*SNG',
         TOKEN_MULTI: '\*MV', 
-        TOKEN_COL: '[\d]+L[\d]+',
+        TOKEN_COL: '[\d]+L[\d]+(\.[\d]+)?',
         TOKEN_FI:'FI',
         TOKEN_SPECIAL: '\*((INTNR)|(INTTIME)|(SCRCNT)|(INTERNR)|(STIME))',
         TOKEN_QUESTION: '\*[a-zA-Z][a-zA-Z0-9_-]*', 
@@ -56,10 +56,10 @@ class Token(object) :
         TOKEN_BLACK: 'BLACK',
     }
     
-    def __init__(self, s='', start=-1,len=-1, type = TOKEN_UNKNOWN) :
+    def __init__(self, s='', start=-1,l=-1, type = TOKEN_UNKNOWN) :
         self.sentense = None
         self.start = start
-        self.len = len
+        self.len = l
         self.string = s
         self.type = type
         #print("parse " + str(self.string))
@@ -68,10 +68,16 @@ class Token(object) :
         return ("%s \t->%s" % (Token.token_type_names[self.type], self.str))
 
 class Token_Col(Token):
-    def __init__(self, s='', start =-1, len =-1):
-        super(Token_Col, self).__init__(s, start, len, Token.TOKEN_COL)
+    def __init__(self, s='', start =-1, l =-1):
+        super(Token_Col, self).__init__(s, start, l, Token.TOKEN_COL)
         self.col_start = int(self.string.split('L')[0])
-        self.col_width = int(self.string.split('L')[1])
+        width = self.string.split('L')[1]
+        widths = width.split('.')
+        if len(widths) > 1:
+            self.col_width = int(widths[0]) + int(widths[1])
+        else:
+            self.col_width = int(width)
+            
 
 def token_parse(s, pos, len):
     if not s :
@@ -739,10 +745,10 @@ class Project(object):
             o = 'tab '
             if qp.is_grid():
                 o += qp.q.question.Q_name + ' grid'
-            #elif qp.is_top2():
-            #    o += qp.q.question.Q_name + ' tops'
-            #elif qp.is_mean():
-            #    o += qp.q.question.Q_name + ' mean'
+            elif qp.is_top2():
+                o += qp.q.question.Q_name + 't' + ' ban1'
+            elif qp.is_mean():
+                o += qp.q.question.Q_name + 'm' + ' ban1'
             else:
                 o += qp.q.question.P_name + ' ban1'
     
