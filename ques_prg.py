@@ -284,7 +284,7 @@ class Question_P_Loop_Single(Question_P_Loop):
         if col_width ==1:
             self.col = 'col a0'
         else:
-            self.col = 'fld ca0:' + col_width
+            self.col = 'fld ca0:' + str(col_width)
 
         #选项, 和在prg文件一样
         super(Question_P_Loop_Single, self).init_single_options()
