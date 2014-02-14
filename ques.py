@@ -874,7 +874,7 @@ class Project(object):
         self.maxima_qt_file()
         self.alias_qt_file()
         self.datamap()
-        self.save_col_prg(self, qps)
+        self.save_col_prg(qps)
 
         self.dirty = False
 
