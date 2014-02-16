@@ -969,7 +969,7 @@ class MainFrame(wx.Frame):
             
 # end of class MainFrame
 if __name__ == "__main__":
-    gettext.install("NToQ") # replace with the appropriate catalog name
+
     NToQ = wx.App()
 
     bitmaps.append(wx.Bitmap('res/notchecked.ico', wx.BITMAP_TYPE_ICO))
