@@ -586,7 +586,7 @@ class Project(object):
                         base_index += 1
                         #查到新的base
                         cond_base_dict[base_cond] = base_key
-                        self.base_dict[base_key] = base_value
+                        self.base_dict[base_key] = u"N10基数：" + base_value + u";nocol;noexport"
                     qp.base = base_key
 
     def parse_file(self):

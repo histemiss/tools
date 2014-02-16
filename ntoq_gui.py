@@ -437,6 +437,12 @@ class TextDialog(wx.Dialog):
         self.SetTitle(u'操作pub文件')
         self.text_ctrl.ChangeValue('\n'.join(qps[0].pub_lines))
 
+    def set_filter(self, qps):
+        self.op = 'filter'
+        self.qps = qps
+        self.SetTitle(u'修改过滤条件')
+        self.text_ctrl.ChangeValue(qps[0].cond_prg)
+        
     def OnMod(self, event):
         if not self.text_ctrl.IsModified():
             wx.MessageBox(u'内容没有修改')
@@ -445,6 +451,11 @@ class TextDialog(wx.Dialog):
         #保存数据
         if self.op == 'prg':
             self.qps[0].outputs = self.text_ctrl.GetValue().split('\n')
+        elif self.op == 'filter':
+            pub_lines= self.text_ctrl.GetValue()
+            for q in self.qps:
+                q.cond_prg = pub_lines
+                q.refresh_cond()
         else:
             #prg文件将使用单独的文件名
             #新的pub文件名是第一个问题的P_name
@@ -874,13 +885,11 @@ class MainFrame(wx.Frame):
         if len(qps) == 0:
             wx.MessageBox(u"没有选中使用过滤条件的问题", style=wx.OK)
             return 
-        dialog = wx.TextEntryDialog(None, u"输入新的过滤条件", u"修改过滤条件", '', style=wx.OK|wx.CANCEL)
-        if dialog.ShowModal() == wx.ID_OK:
-            cond = dialog.GetValue()
-            for i in range(len(self.gt.checkboxes)):
-                if self.gt.checkboxes[i] and self.gt.all_ques[i].cond_prg != None:
-                    self.gt.all_ques[i].cond_prg = cond
-            self.Highlight()
+
+        text_dia = TextDialog(self)
+        text_dia.set_filter(qps)
+        text_dia.ShowModal()
+        self.Highlight()
 
     def OnModPub(self, event):
         #构造qps
@@ -945,9 +954,11 @@ class MainFrame(wx.Frame):
             #修改过滤条件
             if qp.q.condition :
                 #必须有条件
-                dialog = wx.TextEntryDialog(None, u"输入新的过滤条件", u"修改过滤条件", qp.cond_prg, style=wx.OK|wx.CANCEL)
-                if dialog.ShowModal() == wx.ID_OK:
-                    qp.cond_prg = dialog.GetValue()
+                text_dia = TextDialog(self)
+                qps = []
+                qps.append(qp)
+                text_dia.set_filter(qps)
+                text_dia.ShowModal()
 
         elif col == QuesGrid.QUES_SEL:
             self.gt.checkboxes[event.GetRow()] = not self.gt.checkboxes[event.GetRow()]

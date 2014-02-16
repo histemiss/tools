@@ -64,7 +64,7 @@ class Question_P(object):
         if not self.cond_prg :
             print(u"严重错误")
             raise
-        self.update_cond(self)
+        self.update_cond()
         self.format()
 
     def update_cond(self):
