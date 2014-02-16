@@ -818,7 +818,7 @@ class Project(object):
         self.write_lines('MAXIMA.QT', lines)
 
     def datamap(self):
-        #保存 datamap-style文件,文件名是datamap-style.csv
+        #保存 datamap文件,文件名是datamap.csv
         outputs = []
         o = 'Name, Text, Type, precode, answer, start, len'
         outputs.append(o)
@@ -854,7 +854,7 @@ class Project(object):
                     o += ' , '
                 outputs.append(o)
 
-        self.write_lines('datamap-style.csv', outputs)
+        self.write_lines('datamap.csv', outputs)
             
     def alias_qt_file(self):
         lines = []

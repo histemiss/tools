@@ -252,7 +252,7 @@ class Question_P_Loop(Question_P):
         if self.q.condition:
             self.l += ';c=&b'
             #可能覆盖没条件的pub文件
-            self.pub_fn = self.q.question.Q_name + '-c.pub'
+            self.pub_fn = self.q.question.Q_name + '_c.pub'
         self.desc = 'n23&y'
         #self.base = 'base1'
 
@@ -465,7 +465,7 @@ class Question_P_Grid_Multi(Question_P_Grid):
         super(Question_P_Grid_Multi, self).__init__(q, Question_P.QUESTION_OUTPUT_GRID_MULTI)
         
         #pub文件, 不带头部的
-        self.pub_fn = q.question.Q_name + '-nohead.pub'
+        self.pub_fn = q.question.Q_name + '_nohead.pub'
         super(Question_P_Grid_Multi, self).init_multi_options()
         self.n03 = 'n03;nosort'
         self.tail = 'totm'
