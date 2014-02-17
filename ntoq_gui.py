@@ -276,11 +276,14 @@ class BaseDialog(wx.Dialog):
         self.__do_layout()
         # end wxGlade
 
+        self.button_read.Hide()
+        self.button_base_2.Hide()
+
         #操作数据, 参数base中是字典, 在外部设置
         self.base_dict = self.GetParent().proj.base_dict
         self.list_ctrl_base.InsertColumn(0, u'标签')
         self.list_ctrl_base.InsertColumn(1, u'文本')
-        self.list_ctrl_base.SetColumnWidth(1, wx.LIST_AUTOSIZE)
+        self.list_ctrl_base.SetColumnWidth(1, 300)
         for i in self.base_dict:
             self.list_ctrl_base.Append((i, self.base_dict[i]))
 
@@ -586,7 +589,7 @@ class MainFrame(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: MainFrame.__set_properties
         self.SetTitle(("NToQ"))
-        self.SetSize((829, 732))
+        self.SetSize((900, 732))
 
         self.frame_main_statusbar.SetStatusWidths([-1, 0])
         # statusbar fields

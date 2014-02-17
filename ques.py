@@ -548,7 +548,7 @@ class Project(object):
         #对于没有使用过滤条件的,设置base1
         #对于使用的收集过滤条件行
 
-        default_base_key = 'base1'
+        default_base_key = 'base01'
         #后面从base2开始
         base_index = 2
         #所有的base的key/value的值
@@ -582,7 +582,7 @@ class Project(object):
                         base_key = cond_base_dict[base_cond]
                     else:
                         #构造一个新的
-                        base_key = 'base%d' % base_index
+                        base_key = 'base%02d' % base_index
                         base_index += 1
                         #查到新的base
                         cond_base_dict[base_cond] = base_key
@@ -613,6 +613,8 @@ class Project(object):
                 r = re.compile('\s*$')
                 t = r.sub('', t)
                 if len(t) == 0:
+                    continue
+                elif t[0:3] == 'COM':
                     continue
 
                 #'\'结尾的行
@@ -744,7 +746,7 @@ class Project(object):
         for qp in self.all_ques_prg: 
             o = 'tab '
             if qp.is_grid():
-                o += qp.q.question.Q_name + ' grid'
+                o += qp.q.question.Q_name + 'g' + ' grid'
             elif qp.is_top2():
                 o += qp.q.question.Q_name + 't' + ' ban1'
             elif qp.is_mean():
@@ -824,7 +826,8 @@ class Project(object):
         outputs.append(o)
 
         for q in self.all_ques_q:
-            o = q.question.V_name + ',' + q.question.long_name + ','
+            long_name = q.question.long_name.replace(',', u'，')
+            o = q.question.V_name + ',' + long_name + ','
             if q.question.type_ques == Sentense_ques.QUESTION_SINGLE:
                 o += 'Single'
             elif q.question.type_ques == Sentense_ques.QUESTION_MULTI:
@@ -847,7 +850,8 @@ class Project(object):
 
             #选项, 只对于单选和多选有效
             for opt in q.options:
-                o = ' , , , %d, %s,' % (opt.option_key, opt.option_name)
+                option_name = opt.option_name.replace(',', u'，')
+                o = ' , , , %d, %s,' % (opt.option_key, option_name)
                 if q.question.type_ques == Sentense_ques.QUESTION_MULTI:
                     o += '%d, 1' % (col_start+opt.option_key-1)
                 else:
@@ -859,12 +863,12 @@ class Project(object):
     def alias_qt_file(self):
         lines = []
         for i in self.base_dict:
-            o = (" %s %s") % (i, self.base_dict[i])
+            o = ("%s %s") % (i, self.base_dict[i])
             lines.append(o)
         
         self.write_lines('ALIAS.QT', lines)
 
-    def save_prg(self, qps, outp_dir = ''):
+    def save_prg(self, qps=[], outp_dir = ''):
         if len(outp_dir) != 0:
             self.outp_dir = outp_dir
 
@@ -879,9 +883,6 @@ class Project(object):
         self.dirty = False
 
     def save_col_prg(self, qps, outp_dir = ''):
-        if len(qps) == 0:
-            return
-
         if len(self.outp_dir) == 0:
             self.outp_dir = outp_dir
 

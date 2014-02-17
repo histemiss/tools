@@ -365,7 +365,7 @@ class Question_P_Loop_Number(Question_P_Loop):
             self.val = 'val c(a0,a' + str(col_width-1) + ');0:' + '9' * col_width
 
         self.n03 = 'n03;nosort'
-        self.tail = 'totm'
+        self.tail = 'tots'
 
         #只包括include文件
         super(Question_P_Loop_Number, self).init_include()
@@ -504,7 +504,7 @@ class Question_P_Top2(Question_P):
         qs = self.q.get_ques_q()
         for i in qs:
             col = i.question.col.col_start
-            o = '*include top2.pub;col(a0)=' + str(col) + ';y=' + i.question.long_name
+            o = '*include top2.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
             self.cols.append(o)
 
         self.pub_fn = 'top2.pub'
@@ -533,7 +533,7 @@ class Question_P_Mean(Question_P):
         qs = self.q.get_ques_q()
         for i in qs:
             col = i.question.col.col_start
-            o = '*include mean.pub;col(a0)=' + str(col) + ';y=' + i.question.long_name
+            o = '*include mean.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
             self.cols.append(o)
 
         self.pub_fn = 'mean.pub'
