@@ -128,7 +128,7 @@ class Sentense(object):
 class Sentense_cond(Sentense):
     def __init__(self, ts = [], s = '', l = -1):
         super(Sentense_cond, self).__init__(ts, s, l, Sentense.SENTENSE_CONDITION)
-        self.cond_prg = None
+        self.cond_prg = ''
 
     def cond_ques_expr(self, c):
         #使用题号的判断表达式: 'V2130,1'  前面可能带有#, 后面可能带有多个','
@@ -184,7 +184,7 @@ class Sentense_cond(Sentense):
                 o_out.append(i_out)
             output = '.and.'.join(o_out)
             if r_not:
-                output = 'not.(' + output + ')'
+                output = '.not.(' + output + ')'
             return output
 
         #单选题
@@ -212,9 +212,9 @@ class Sentense_cond(Sentense):
                 #Q,10,20,99 -> c0.in.(10,20,99) 
                 #如果是否定, 千米使用not表示否定
                 #ks是选项行的数据,直接使用
-                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').in(' + ','.join(ks) + ')'
+                output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').in.(' + ','.join(ks) + ')'
                 if r_not:
-                    output = 'not.' + output
+                    output = '.not.' + output
 
         return output
 
@@ -271,17 +271,13 @@ class Sentense_cond(Sentense):
         
     def cond_parse(self, c):
         #使用题号作为过滤条件
-        r_ques = re.compile(r'\A\s*#?[a-zA-Z][a-zA-Z0-9_-]*(,[0-9]+)+\s*(\\|&\s*#?[a-zA-Z][a-zA-Z0-9-_]*(,[0-9]+)+\s*)*\Z')
+        r_ques = re.compile(r'\s*#?[a-zA-Z][a-zA-Z0-9_-]*(,[0-9]+)+\s*')
 
         #使用数据位置作为过滤条件
-        r_col = re.compile(r'\A\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+\s(\\|&\s*[1-9][0-9]*L[0-9]+\s*(=)|(<>)|(<)|(>)|(>=)|(<=)\s*[0-9]+)*\Z')
+        r_col = re.compile(r'\s*[1-9][0-9]*L[0-9]+\s*((=)|(<>)|(<)|(>)|(>=)|(<=))\s*[0-9]+\s*')
 
-        f = None
-        
-        if f == None and r_ques.match(c):
-            f = self.cond_ques_expr
-        elif f == None and r_col.match(c):
-            f = self.cond_col_expr
+        #匹配判断表达式
+        r_num = re.compile(r'\s*[0-9]+\s*((<)|(>)|(=)|(<>)|(>=)|(<=))\s*[0-9]+\s*')
 
         #使用'\'和'&'分割, 使用'or', 'and'连起来
         o_conds = c.split('\\')
@@ -290,8 +286,15 @@ class Sentense_cond(Sentense):
             a_conds = o.split('&')
             a_out = []
             for a in a_conds:
-                a_out.append(f(a))
-            o_out.append('.and.'.join(a_out))
+                if r_ques.match(a):
+                    a_out.append(self.cond_ques_expr(a))
+                elif r_col.match(a):
+                    a.out.append(self.cond_col_expr(a))
+                elif r_num.match(a):
+                    continue
+
+            if len(a_out) > 0:
+                o_out.append('.and.'.join(a_out))
         return '.or.'.join(o_out)
             
     def parse_condition(self, proj):
@@ -425,8 +428,9 @@ def parse_sentense(s, l = -1):
         #忽略这一行, 其中可能有特殊关键字
         o = Sentense(ts, s, l, Sentense.SENTENSE_BLACK)
 
-    for i in o.tokens :
-        i.sentense = o
+    #token反向索引sentense, 没有使用
+    #for i in o.tokens :
+    #    i.sentense = o
 
     #if o.type == Sentense.SENTENSE_QUESTION:
         #print(o)
@@ -617,13 +621,21 @@ class Project(object):
                 elif t[0:3] == 'COM':
                     continue
 
-                #'\'结尾的行
+                stop = True
+                #'\'结尾的行, 需要继续处理
                 if t[-1] == '\\':
                     t = t[:-1]
-                    s += t
-                    continue
-                else:
-                    s += t
+                    stop = False
+                    
+                #去掉行尾空格
+                t = r.sub('', t)
+                #去掉行首空格，第一行不处理
+                if len(s) > 0:
+                    r2 = re.compile('^\s*')
+                    t = r2.sub('', t)
+                s += t
+
+                if stop :
                     break
 
             if len(s) == 0:
@@ -740,6 +752,24 @@ class Project(object):
             axe_f.write(CRLF.encode('gbk'))
 
         axe_f.close()
+
+        #保存top2和mean的pub文件
+        lines =[ "n01&y;c=ca0'45'",]
+        self.write_lines('top2.pub', lines)
+        lines =[ 
+            "n00;c=&b",
+            "n01&y;c=ca0'45'",]
+        self.write_lines('top2c.pub', lines)
+
+        lines =[ 
+            "n25;inc=ca0", 
+            "n12&y;dec=2"]
+        self.write_lines('mean.pub', lines)
+        lines =[ 
+            "n00;c=&b",
+            "n25;inc=ca0", 
+            "n12&y;dec=2"]
+        self.write_lines('meanc.pub', lines)
         
         #tab.prg文件
         lines = []

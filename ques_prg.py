@@ -60,10 +60,6 @@ class Question_P(object):
 
     def refresh_cond(self):
         #当更新问题的过滤条件之后使用
-        #只有普通问题和循环才有, 而且外面需要过滤掉不使用的
-        if not self.cond_prg :
-            print(u"严重错误")
-            raise
         self.update_cond()
         self.format()
 
@@ -80,8 +76,9 @@ class Question_P(object):
         self.type = t
         
         #单独记录过滤条件, 直接操作这个变量
-        self.cond_prg = None
-        if not (self.is_grid() or self.is_top2() or self.is_mean()) and q.condition != None:
+        #所有题目都可能添加条件
+        self.cond_prg = ''
+        if q.condition != None:
             self.cond_prg = q.condition.cond_prg
             
         #题目的轴名字, 包含'l'和题号Q_name, 可能包含条件
@@ -111,7 +108,7 @@ class Question_P(object):
     def init_head(self):
         #构造轴名字
         self.l = 'l ' + self.q.question.P_name
-        if self.q.condition :
+        if len(self.cond_prg) > 0:
             self.l += ';c=' + self.cond_prg
 
         #构造题干描述
@@ -242,6 +239,9 @@ class Question_P_Loop(Question_P):
     def __init__(self, q, t):
         #所有循环的父类
         super(Question_P_Loop, self).__init__(q, t)
+        
+        #反向关联题目
+        q.qp = self
 
     def init_loop_head(self):
         #pub文件名
@@ -249,7 +249,7 @@ class Question_P_Loop(Question_P):
 
         #初始化pub文件中的头部
         self.l = 'l &x'
-        if self.q.condition:
+        if len(self.cond_prg) > 0:
             self.l += ';c=&b'
             #可能覆盖没条件的pub文件
             self.pub_fn = self.q.question.Q_name + '_c.pub'
@@ -259,15 +259,23 @@ class Question_P_Loop(Question_P):
     def init_include(self):
         #定义include命令
         self.include = '*include ' + self.pub_fn
-        if self.q.condition:
+        if len(self.cond_prg) > 0:
             self.include += ';b=' + self.cond_prg
         self.include += ';col(a)=' + str(self.q.question.col.col_start)
         self.include += ';x=' + self.q.question.P_name
         self.include += ';y=' + self.q.question.long_name
 
     def update_cond(self):
+        #更新pub文件中的描述, 在format时会重新生成pub文件
+        self.init_loop_head()
+
         #对于循环的问题, 更新include
         self.init_include()
+        
+        #更新对应的grid,top2,mean题目
+        self.grid.refresh_cond()
+        self.top2.refresh_cond()
+        self.mean.refresh_cond()
 
 class Question_P_Loop_Single(Question_P_Loop):
     def __init__(self, q):
@@ -388,21 +396,37 @@ class Question_P_Grid(Question_P):
     #所有的grid的类的父类
     def __init__(self, q, t):
         super(Question_P_Grid, self).__init__(q, t)
+        #过滤条件为空, 不会依托子问题过滤条件
+        self.cond_prg = ''
+        
+        #循环的子问题关联grid题目, 更新子问题过滤条件时，更新对应的grid题目
+        qs = self.q.get_ques_q()
+        for q in qs:
+            q.qp.grid = self
 
     def init_grid(self):
         self.l = 'l ' + self.q.question.Q_name + 'g'
+        if len(self.cond_prg) > 0:
+            self.l += ';c=' + self.cond_prg
 
         #xls文件中的列,而不是结果数据
         #获取循环的所有子问题
         qs = self.q.get_ques_q()
         self.cols = []
         for i in qs:
-            o = 'n01' + i.question.long_name + ';col(a)=' + str(i.question.col.col_start)
+            if len(i.qp.cond_prg) > 0:
+                o = 'n01' + i.question.long_name + ';col(a)=' + str(i.question.col.col_start) + ";c=" + i.qp.cond_prg
+            else:
+                o = 'n01' + i.question.long_name + ';col(a)=' + str(i.question.col.col_start)
             self.cols.append(o)
 
         self.side = 'side'
         self.desc = 'n23' + self.q.question.Q_name + ' - GRID'
         #self.base = 'base1'
+
+    def update_cond(self):
+        #更新grid的描述和子问题的判断条件
+        self.init_grid()
 
 class Question_P_Grid_Number(Question_P_Grid):
     def __init__(self, q):
@@ -413,9 +437,12 @@ class Question_P_Grid_Number(Question_P_Grid):
 
         #构造val
         col_width = q.question.col.col_width
-        self.val = 'val c(a0);0:' + '9'*col_width
-        
-        self.n03 = 'n03,nosort'
+        if col_width == 1:
+            self.val='val c(a0);0:9'
+        else:
+            self.val = 'val c(a0,'+str(col_width-1)+');0:' + '9'*col_width
+      
+        self.n03 = 'n03;nosort'
         self.tail = 'tots'
 
     def format(self):
@@ -495,24 +522,46 @@ class Question_P_Top2(Question_P):
     #top2问题不再区分子类型
     def __init__(self, q):
         super(Question_P_Top2, self).__init__(q, Question_P.QUESTION_OUTPUT_TOP2)
+        #默认过滤条件为空
+        self.cond_prg = ''
 
-        #
-        self.l = 'l ' + q.question.Q_name + 't'
-        self.desc = 'n23' + q.question.Q_name + '.TOP2'
+        #子问题反向影射top2问题
+        qs = self.q.get_ques_q()
+        for q in qs:
+            q.qp.top2 = self
+
+        self.init_top2()
+
+    def init_top2(self):
+        self.l = 'l ' + self.q.question.Q_name + 't'
+        if len(self.cond_prg) > 0:
+            self.l += ';c=' + self.cond_prg
+
+        self.desc = 'n23' + self.q.question.Q_name + '.TOP2'
         #base
         self.cols = []
         qs = self.q.get_ques_q()
         for i in qs:
             col = i.question.col.col_start
-            o = '*include top2.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
+            if len(i.qp.cond_prg) > 0:
+                o = '*include top2c.pub;col(a)=' + str(col) + ';y=' + i.question.long_name + ';b=' + i.qp.cond_prg
+            else:
+                o = '*include top2.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
             self.cols.append(o)
 
-        self.pub_fn = 'top2.pub'
-        self.pub_lines =[ "n01&y;c=ca0'45'",]
+        #不使用pub文件
+        self.pub_fn = ''
         
     def format(self):
+        #所有的top2问题使用一套pub文件
+        '''
         self.pub_fn = 'top2.pub'
         self.pub_lines =[ "n01&y;c=ca0'45'",]
+        self.pub_fn = 'top2c.pub'
+        self.pub_lines =[ 
+            "n00;c=&b",
+            "n01&y;c=ca0'45'",]
+        '''
 
         self.outputs = []
         self.outputs.append(self.l)
@@ -520,28 +569,59 @@ class Question_P_Top2(Question_P):
         self.outputs.append(self.base)
         for o in self.cols:
             self.outputs.append(o)
+
+    def update_cond(self):
+        #更新axe文件中的描述和子问题描述
+        self.init_top2()
         
 class Question_P_Mean(Question_P):
     def __init__(self, q):
         super(Question_P_Mean, self).__init__(q, Question_P.QUESTION_OUTPUT_MEAN)
+        #默认过滤条件为空
+        self.cond_prg = ''
 
-        #
-        self.l = 'l ' + q.question.Q_name + 'm'
-        self.desc = 'n23' + q.question.Q_name + '.MEAN'
+        #子问题反向影射mean题目
+        qs = self.q.get_ques_q()
+        for q in qs:
+            q.qp.mean = self
+
+        self.init_mean()
+
+    def init_mean(self):
+        self.l = 'l ' + self.q.question.Q_name + 'm'
+        if len(self.cond_prg) > 0:
+            self.l += ';c=' + self.cond_prg
+
+        self.desc = 'n23' + self.q.question.Q_name + '.MEAN'
         #base
         self.cols = []
         qs = self.q.get_ques_q()
         for i in qs:
             col = i.question.col.col_start
-            o = '*include mean.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
+            if len(i.qp.cond_prg) > 0:
+                o = '*include meanc.pub;col(a)=' + str(col) + ';y=' + i.question.long_name + ';b=' + i.qp.cond_prg
+            else:
+                o = '*include mean.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
             self.cols.append(o)
 
-        self.pub_fn = 'mean.pub'
-        self.pub_lines =[ "n25;inc=ca0", "n12&y;dec=2"]
-        
+        self.pub_fn = ''
+
+    def update_cond(self):
+        self.init_mean()
+
     def format(self):
+        #使用相同的一套, mean.pub, meanc.pub
+        '''
         self.pub_fn = 'mean.pub'
-        self.pub_lines =[ "n25;inc=ca0", "n12&y;dec=2"]
+        self.pub_lines =[ 
+            "n25;inc=ca0", 
+            "n12&y;dec=2"]
+        self.pub_fn = 'meanc.pub'
+        self.pub_lines =[ 
+            "n00;c=&b",
+            "n25;inc=ca0", 
+            "n12&y;dec=2"]
+        '''
 
         self.outputs = []
         self.outputs.append(self.l)

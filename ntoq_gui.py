@@ -92,7 +92,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
         #记录所有的checkbox
         self.checkboxes = []
 
-    def ResetQues(self, qs):
+    def ResetQues(self, qs = []):
         #打开VAR文件后,根据解析结果更新grid
         old_qs = self.all_ques
         self.all_ques = qs
@@ -163,7 +163,7 @@ class QuesGrid(wx.grid.PyGridTableBase):
         elif col == QuesGrid.QUES_TRUNK:
             return q.question.long_name
         elif col == QuesGrid.QUES_FILT:
-            if qp.cond_prg:
+            if len(qp.cond_prg) > 0:
                 return qp.cond_prg
             return u'无'
         elif col == QuesGrid.QUES_VAR_LINE:
@@ -456,6 +456,11 @@ class TextDialog(wx.Dialog):
             self.qps[0].outputs = self.text_ctrl.GetValue().split('\n')
         elif self.op == 'filter':
             pub_lines= self.text_ctrl.GetValue()
+
+            #去掉头尾的空格
+            r = re.compile(r'(^\s*)|(\s*$)')
+            pub_lines = r.sub('', pub_lines)
+
             for q in self.qps:
                 q.cond_prg = pub_lines
                 q.refresh_cond()
@@ -819,9 +824,16 @@ class MainFrame(wx.Frame):
             del self.proj
 
             #解析文件
-            self.proj = Project(dia_file.GetPath())
-            #更新grid
-            self.gt.ResetQues(self.proj.all_ques_prg)
+            try:
+                self.proj = Project(dia_file.GetPath())
+            except:
+                self.proj = None
+                self.gt.ResetQues()
+                wx.MessageBox(u"文件解析失败", style=wx.YES)
+                return
+            else:
+                #更新grid
+                self.gt.ResetQues(self.proj.all_ques_prg)
             
         
     def OnSave(self, event):
@@ -955,13 +967,11 @@ class MainFrame(wx.Frame):
         
         elif col == QuesGrid.QUES_FILT:
             #修改过滤条件
-            if qp.q.condition :
-                #必须有条件
-                text_dia = TextDialog(self)
-                qps = []
-                qps.append(qp)
-                text_dia.set_filter(qps)
-                text_dia.ShowModal()
+            text_dia = TextDialog(self)
+            qps = []
+            qps.append(qp)
+            text_dia.set_filter(qps)
+            text_dia.ShowModal()
 
         elif col == QuesGrid.QUES_SEL:
             self.gt.checkboxes[event.GetRow()] = not self.gt.checkboxes[event.GetRow()]
