@@ -16,6 +16,7 @@ import gettext
 from ques import *
 import os
 import pdb
+import traceback
 
 #临时变量
 bitmaps = []
@@ -827,9 +828,10 @@ class MainFrame(wx.Frame):
             try:
                 self.proj = Project(dia_file.GetPath())
             except:
+                traceback.print_exc()
                 self.proj = None
                 self.gt.ResetQues()
-                wx.MessageBox(u"文件解析失败", style=wx.YES)
+                wx.MessageBox(u"文件解析失败", style=wx.OK)
                 return
             else:
                 #更新grid

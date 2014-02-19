@@ -138,6 +138,7 @@ class Sentense_cond(Sentense):
         
         #结果是output
         output = ''
+        p = 1
 
         #开头是否有'#'
         r_not = False
@@ -182,10 +183,12 @@ class Sentense_cond(Sentense):
                 #i是选项行中的数据,对应结果偏移
                 i_out = 'c' + str(col_start + i - 1) + '\'1\''
                 o_out.append(i_out)
-            output = '.and.'.join(o_out)
+            output = '.or.'.join(o_out)
+            p = 0
             if r_not:
                 output = '.not.(' + output + ')'
-            return output
+                p = 1
+            return {'s':output, 'p':p}
 
         #单选题
         #ks直接使用，转换为字符串
@@ -198,6 +201,7 @@ class Sentense_cond(Sentense):
             n_output = 'n' if r_not else ''
             #ks是选项行中的值，直接拿过来
             output = 'c' + str(col_start) + n_output + '\'' + ''.join(ks) + '\''
+            p = 1
         else:
             #如果题目结果使用多位, 使用'eq'/'ne'的方式
             if len(vs) == 1:
@@ -207,16 +211,19 @@ class Sentense_cond(Sentense):
                 eq_outp = 'ne' if r_not else 'eq'
                 #ks里面是选项行中的数据，直接使用
                 output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').' + eq_outp + '.' + ks[0]
+                p = 1
             else:
                 #多个值,使用'in'
                 #Q,10,20,99 -> c0.in.(10,20,99) 
                 #如果是否定, 千米使用not表示否定
                 #ks是选项行的数据,直接使用
                 output = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ').in.(' + ','.join(ks) + ')'
+                p = 1
                 if r_not:
                     output = '.not.' + output
+                    p = 1
 
-        return output
+        return {'s':output, 'p':p}
 
     def cond_col_expr(self, c):
         #使用Q的表达式作为过滤条件
@@ -257,19 +264,24 @@ class Sentense_cond(Sentense):
             raise None
             
         output = ''
+        p = 1
         if col_width == 1 :
             if s == 'eq' or s == 'ne':
                 #只简化这种情况
                 s_op = '' if s == 'eq' else 'n'
                 output = 'c' + str(col_start) + s_op + '\'' + val + '\''
+                p = 1
             else :
                 output = 'c(' + str(col_start) + ').' + s + '.' + val
+                p = 1
         else :
             output = 'c(' + str(col_start) + ',' + str(col_start + col_width-1) + ').' + s + '.' + val
+            p = 1
 
-        return output
+        return {'s':output, 'p':p}
+
         
-    def cond_parse(self, c):
+    def cond_expr(self, c):
         #使用题号作为过滤条件
         r_ques = re.compile(r'\s*#?[a-zA-Z][a-zA-Z0-9_-]*(,[0-9]+)+\s*')
 
@@ -279,23 +291,126 @@ class Sentense_cond(Sentense):
         #匹配判断表达式
         r_num = re.compile(r'\s*[0-9]+\s*((<)|(>)|(=)|(<>)|(>=)|(<=))\s*[0-9]+\s*')
 
-        #使用'\'和'&'分割, 使用'or', 'and'连起来
-        o_conds = c.split('\\')
-        o_out = []
-        for o in o_conds:
-            a_conds = o.split('&')
-            a_out = []
-            for a in a_conds:
-                if r_ques.match(a):
-                    a_out.append(self.cond_ques_expr(a))
-                elif r_col.match(a):
-                    a.out.append(self.cond_col_expr(a))
-                elif r_num.match(a):
-                    continue
+        #匹配单个数字
+        r_digital = re.compile(r'\s*[0-9]+\s*')
 
-            if len(a_out) > 0:
-                o_out.append('.and.'.join(a_out))
-        return '.or.'.join(o_out)
+        if r_ques.match(c):
+            return self.cond_ques_expr(c)
+        elif r_col.match(c):
+            return self.cond_col_expr(c)
+        elif r_num.match(c) or r_digital.match(c):
+            #这里优先级为0, 特殊情况
+            return {'s':u'空', 'p':0}
+        else:
+            print(u'无法解析判断表达式')
+            raise None
+
+    #处理一个表达式，如果碰到括号，使用递归
+    def parse_child(self, s, p):
+        start = p
+        end = start
+        output = []
+        #遍历,只处理\,&,(, )
+        while end < len(s):
+            if s[end] == ')' :
+                #碰到')', 直接退出
+                break	
+
+            if s[end] == '(':
+                if start != end:
+                    print(u'括号前面应该是符号')
+                    raise None
+
+                (child, end) = self.parse_child(s, start + 1)
+                output.append(child)
+
+                if len(output) % 2 != 1:
+                        print(u'解析失败')
+                        raise None
+
+                start = end
+            elif s[end] in ('\\', '&'):
+                #先解析连接符号之前的子表达式
+                if start < end:
+                    output.append(self.cond_expr(s[start:end]))
+
+                if len(output) % 2 != 1:
+                    print(u'解析失败')
+                    raise None
+
+                #处理连接符号
+                output.append({'\\':'or', '&':'and'}[s[end]])
+                if len(output) % 2 != 0:
+                    print(u'解析失败')
+                    raise None
+                
+                end += 1
+                start = end
+            else:
+                end += 1
+
+        #解析最后一个表达式, 可能在括号前面，可能在表达式结尾处
+        if start < end:
+            output.append(self.cond_expr(s[start:end]))
+
+        if len(output) % 2 != 1:
+            print(u'解析错误')
+            raise None
+
+        #找到空的子表达式，把前面的连接符号去掉
+        start = 0
+        while start < len(output):
+            if len(output[start]['s']) == 0:
+                del output[start]
+                if len(output) > 0:
+                    #如果有多个表达式，也就是有连接符号
+                    if start == 0:
+                        #第一个子表达式为空,去掉后面的连接符号
+                        del output[0]
+                    else:
+                        #否则去掉前面的连接符号
+                        del output[start-1]
+
+            else:
+                s = output[start]['s']
+                p = output[start]['p']
+                #如果不是空, 检查是否需要添加括号
+                #根据子表达式的最低优先级和两边的连接符号
+                need_b = False
+                #如果子表达整体优先级很高, 单独的或者都使用&, 不需要括号
+                #如果子表达式优先级低，而且2边的连接符号优先级高，需要括号
+                if p == 0:
+                    #否则需要检查
+                    #检查前一个表达式, 如果是&,需要
+                    if start > 0 and output[start-1] == 'and':
+                        need_b = True
+                    if start < len(output)-1 and output[start+1] == 'and':
+                        need_b = True
+
+                if need_b:
+                    output[start] = '(' + s + ')'
+                else:
+                    output[start] = s
+
+                #处理下一个子表达式
+                start += 2
+
+        #遍历所有的连接符号，如果有\, 返回0, 否则返回1
+        start = 1
+        #p=0, 表示当前表达式有\,外部就可能使用括号，p=1, 表示全部使用&,外部不需要使用括号
+        p = 1
+        while start < len(output):
+            if output[start] == 'or':
+                p = 0
+                break
+            start += 2
+                
+        #最后把子表达式和连接符号使用'.'连起来
+        o = ''
+        if len(output) > 0:
+            #如果所有的子表达式都是空, 返回空, 否则才返回符号连接
+            o = '.'.join(output)
+        return ({'s':o, 'p':p}, end+1)
             
     def parse_condition(self, proj):
         #proj提供接口, 根据var名字查找问题
@@ -305,16 +420,13 @@ class Sentense_cond(Sentense):
         #先分离':'前面的条件
         cond_str = self.string.split(':')[0]
         #先解析括号里面的内容
-        r = re.compile('(\AFI\s+\(\s+)|(\s+\)\s+)')
+        r = re.compile('(^FI\s+\(\s*)|(\s*\)\s*$)')
         cond_str = r.sub('', cond_str)
-
-        o = self.cond_parse(cond_str)
-
-        if o == None:
-            print(u'条件解析错误:', self.string)
-            raise None
-        
-        self.cond_prg = o
+        #去掉中间的所有空格
+        r = re.compile('\s*')
+        cond_str = r.sub('', cond_str)
+        (o, p) = self.parse_child(cond_str, 0)
+        self.cond_prg = o['s']
 
 
 #这一行是题目,解析
