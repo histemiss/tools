@@ -602,6 +602,10 @@ class Project(object):
 
         self.parse_file()
 
+    def del_questions(self, qps):
+        for qp in qps:
+            self.all_ques_prg.remove(qp)
+        
     def add_question(self, q):
         #忽略特殊的题目
         if q.ignore_ques():
@@ -730,8 +734,6 @@ class Project(object):
                 t = r.sub('', t)
                 if len(t) == 0:
                     continue
-                elif t[0:3] == 'COM':
-                    continue
 
                 stop = True
                 #'\'结尾的行, 需要继续处理
@@ -753,6 +755,9 @@ class Project(object):
             if len(s) == 0:
                 #没有数据退出
                 break
+            if s[0:3] == 'COM':
+                #如果COM开头，不处理
+                continue
 
             #print('sentense: %s' % s)
             s = parse_sentense(s, l)

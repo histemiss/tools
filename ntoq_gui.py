@@ -548,6 +548,7 @@ class MainFrame(wx.Frame):
         self.button_filter = wx.Button(self.pane_up, wx.ID_ANY, (u"查询问题"))
         self.button_reset = wx.Button(self.pane_up, wx.ID_ANY, (u"取消查询"))
         self.button_choose = wx.Button(self.pane_up, wx.ID_ANY, (u"全部选中"))
+        self.button_delete = wx.Button(self.pane_up, wx.ID_ANY, (u"删除问题"))
         self.text_ctrl_var = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
         self.text_ctrl_trunk = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
         self.text_ctrl_base = wx.TextCtrl(self.pane_up, wx.ID_ANY, "")
@@ -588,6 +589,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnModPub, self.button_pub)
         #查询操作
         self.Bind(wx.EVT_BUTTON, self.OnChooAll, self.button_choose)
+        self.Bind(wx.EVT_BUTTON, self.OnDelete, self.button_delete)
         self.Bind(wx.EVT_BUTTON, self.OnSearch, self.button_filter)
         self.Bind(wx.EVT_BUTTON, self.OnReset, self.button_reset)
 
@@ -647,6 +649,7 @@ class MainFrame(wx.Frame):
         sizer_left_up.Add(self.button_filter, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
         sizer_left_up.Add(self.button_reset, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
         sizer_left_up.Add(self.button_choose, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
+        sizer_left_up.Add(self.button_delete, 0, wx.LEFT | wx.RIGHT | wx.ADJUST_MINSIZE, 5)
         sizer_left_up.Add((20, 20), 1, wx.EXPAND | wx.ADJUST_MINSIZE, 0)
         sizer_left.Add(sizer_left_up, 0, wx.EXPAND, 0)
         static_line_left = wx.StaticLine(self.pane_up, wx.ID_ANY)
@@ -813,6 +816,17 @@ class MainFrame(wx.Frame):
         self.gt.checkboxes = [True] * self.gt.GetNumberRows()
         self.grid_ques.SelectBlock(0, 0, self.gt.GetNumberRows()-1, self.gt.GetNumberCols()-1, False)
 
+    def OnDelete(self, event):
+        #删除选中的问题
+        qps = []
+        for i in range(len(self.gt.checkboxes)):
+            if self.gt.checkboxes[i]:
+                qps.append(self.gt.all_ques[i])
+
+        self.proj.del_questions(qps)
+        self.gt.ResetQues(self.proj.all_ques_prg)
+
+
     def OnOpen(self, event):
         if self.proj is not None and self.proj.dirty :
             res = wx.MessageBox(u"当前PRG项目没有保存，继续打开将丢失当前数据。\n确认：将继续打开；取消：停止打开。建议保存后再打开", style=wx.YES|wx.NO)
@@ -897,7 +911,7 @@ class MainFrame(wx.Frame):
         #必须有条件
         qps = []
         for i in range(len(self.gt.checkboxes)):
-            if self.gt.checkboxes[i] and self.gt.all_ques[i].cond_prg != None :
+            if self.gt.checkboxes[i]:
                 qps.append(self.gt.all_ques[i])
         if len(qps) == 0:
             wx.MessageBox(u"没有选中使用过滤条件的问题", style=wx.OK)
