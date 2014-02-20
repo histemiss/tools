@@ -28,6 +28,8 @@ class Token(object) :
     TOKEN_QUESTION = 5
     #numbers
     TOKEN_NUMBER = 6
+    #分割问题选项，使用%题号
+    TOKEN_CONTINUE = 7
     
     #没有意义的字符串
     TOKEN_BLACK = 10
@@ -41,8 +43,9 @@ class Token(object) :
         TOKEN_COL: '[\d]+L[\d]+(\.[\d]+)?',
         TOKEN_FI:'FI',
         TOKEN_SPECIAL: '\*((INTNR)|(INTTIME)|(SCRCNT)|(INTERNR)|(STIME))',
-        TOKEN_QUESTION: '\*[a-zA-Z0-9_-]*', 
+        TOKEN_QUESTION: '\*[a-zA-Z0-9_-]+', 
         TOKEN_NUMBER: '\d+',
+        TOKEN_CONTINUE:'%[a-zA-Z0-9_-]+,\s*\d+',  #这里匹配整行:  %题号,选项行
     }
 
     token_type_names = {
@@ -52,24 +55,22 @@ class Token(object) :
         TOKEN_FI:'FI',
         TOKEN_SPECIAL: 'SPECIAL',
         TOKEN_QUESTION: 'QUESTION', 
+        TOKEN_CONTINUE: 'CONTINUE',
         TOKEN_NUMBER: 'NUMBER',
         TOKEN_BLACK: 'BLACK',
     }
     
-    def __init__(self, s='', start=-1,l=-1, type = TOKEN_UNKNOWN) :
+    def __init__(self, s='', type = TOKEN_UNKNOWN) :
         self.sentense = None
-        self.start = start
-        self.len = l
         self.string = s
         self.type = type
-        #print("parse " + str(self.string))
 
     def __str__(self):
-        return ("%s \t->%s" % (Token.token_type_names[self.type], self.str))
+        return Token.token_type_names[self.type] + '->' + self.string
 
 class Token_Col(Token):
-    def __init__(self, s='', start =-1, l =-1):
-        super(Token_Col, self).__init__(s, start, l, Token.TOKEN_COL)
+    def __init__(self, s):
+        super(Token_Col, self).__init__(s, Token.TOKEN_COL)
         self.col_start = int(self.string.split('L')[0])
         width = self.string.split('L')[1]
         widths = width.split('.')
@@ -78,8 +79,7 @@ class Token_Col(Token):
         else:
             self.col_width = int(width)
             
-
-def token_parse(s, pos, len):
+def token_parse(s):
     if not s :
         return None
 
@@ -90,8 +90,8 @@ def token_parse(s, pos, len):
         r = re.compile('\A' + Token.token_str[i] + '\Z')
         if r.match(s) :
             if i == Token.TOKEN_COL:
-                return Token_Col(s, pos, len)
-            return Token(s, pos, len, i)
+                return Token_Col(s)
+            return Token(s, i)
     print(u"无法解析 %s" % s)
     raise None
 
@@ -102,6 +102,8 @@ class Sentense(object):
     SENTENSE_CONDITION = 1
     #题目的选项
     SENTENSE_OPTION = 2
+    #分割选项的问题
+    SENTENSE_OPTION_CONTINUE = 3
     
     #忽略的行
     SENTENSE_BLACK = 10
@@ -112,7 +114,8 @@ class Sentense(object):
         SENTENSE_QUESTION: "QUESTION",
         SENTENSE_CONDITION: "CONDITION",
         SENTENSE_OPTION: "OPTION",
-        SENTENSE_BLACK: "BLACK"
+        SENTENSE_OPTION_CONTINUE: 'OPTION_CONTINUE',
+        SENTENSE_BLACK: "BLACK",
     }
     
     def __init__(self, ts = [], s = '', l = -1, t = SENTENSE_BLACK):
@@ -123,7 +126,7 @@ class Sentense(object):
         self.type = t
 
     def __str__(self):
-        return "\n" + Sentense.sentense_type_names[self.type] + '\t->\n' + '\n'.join([str(i) for i in self.tokens])
+        return '\n' + Sentense.sentense_type_names[self.type] + '\t->\n' + '\n'.join([str(i) for i in self.tokens])
 
 class Sentense_cond(Sentense):
     def __init__(self, ts = [], s = '', l = -1):
@@ -260,7 +263,7 @@ class Sentense_cond(Sentense):
         elif c.find('=') != -1:
             s = 'eq'
         else :
-            print("没有找到比较运算符", c)
+            print(u"没有找到比较运算符", c)
             raise None
             
         output = ''
@@ -492,7 +495,7 @@ class Sentense_ques(Sentense):
             self.type_ques = Sentense_ques.QUESTION_NUMBER
             self.col = self.tokens[1]
         else:
-            print("无法分析问题的类型")
+            print(u"无法分析问题的类型")
             raise None
 
 #这一行是选项, 解析值和对应的名字
@@ -506,6 +509,38 @@ class Sentense_opti(Sentense):
         self.option_key = int(r.sub('', self.tokens[0].string))
         self.option_name = r.sub('', self.tokens[1].string)
 
+#选项行，但它归属于上一个题目
+class Sentense_opti_cond(Sentense):
+    def __init__(self, ts = [], s= '', l = -1):
+        super(Sentense_opti_cond, self).__init__(ts, s, l, Sentense.SENTENSE_OPTION_CONTINUE)
+        #使用‘,'，找到被分割的题目
+        comma = s.find(',')
+        if comma == -1:
+            print(u"分割题选项出错")
+            raise None
+        
+        #去掉开头的%
+        self.ques_name= s[1:comma]
+
+        #后面的是选项行
+        #使用':'分割
+        colon = s.find(':')
+        if colon == -1:
+            print(u"选项题找不到:")
+            raise None
+
+        #和普通的选项行一样使用tokens
+        #第一个是值
+        self.tokens.append(Token(s[comma+1:colon], Token.TOKEN_NUMBER))
+        #第二个是内容
+        self.tokens.append(Token(s[colon+1:], Token.TOKEN_BLACK))
+        #解析选项的值和内容
+        r = re.compile('(\A\s*)|(\s*\Z)|(\')')
+        self.option_key = int(r.sub('', self.tokens[0].string))
+        self.option_name = r.sub('', self.tokens[1].string)
+        
+    
+
 def parse_sentense(s, l = -1):
     #获取':'前面的,开始解析, 没有':', 照样解析
     s1 = s.split(':')[0]
@@ -513,7 +548,7 @@ def parse_sentense(s, l = -1):
     ts = []
     #解析不是空格的单词
     for i in re.finditer(r'\S+', s1):
-        t = token_parse(i.string[i.start():i.end()], i.start(), i.end() - i.start())
+        t = token_parse(i.string[i.start():i.end()])
         ts.append(t)
         if t.type == Token.TOKEN_FI:
             #停止解析, 这一行是判断条件
@@ -521,12 +556,14 @@ def parse_sentense(s, l = -1):
         elif t.type == Token.TOKEN_NUMBER:
             #停止解析, 这一行是现象行
             break
+        elif t.type == Token.TOKEN_CONTINUE:
+            #分割的选项行, 不再处理
+            break
 
     #处理':'后面的,当作没意义的字符串
     p = s.find(':')
     if p != -1:
-        t = Token(s[p+1:], p+1, len(s)-p-1)
-        t.type = Token.TOKEN_BLACK
+        t = Token(s[p+1:], Token.TOKEN_BLACK)
         ts.append(t)
 
     o = None
@@ -536,6 +573,9 @@ def parse_sentense(s, l = -1):
         o = Sentense_ques(ts, s, l)
     elif ts[0].type == Token.TOKEN_NUMBER:
         o = Sentense_opti(ts, s, l)
+    elif ts[0].type == Token.TOKEN_CONTINUE:
+        #独自解析
+        o = Sentense_opti_cond([], s, l)
     else:
         #忽略这一行, 其中可能有特殊关键字
         o = Sentense(ts, s, l, Sentense.SENTENSE_BLACK)
@@ -615,6 +655,14 @@ class Project(object):
         if q.question.type_ques == Sentense_ques.QUESTION_SINGLE and len(q.options) == 0:
             q.question.type_ques = Sentense_ques.QUESTION_NUMBER
 
+        #如果是分割问题
+        if len(q.options) > 0 and q.options[0].type == Sentense.SENTENSE_OPTION_CONTINUE:
+            #找到上一个问题
+            q2 = self.ques_v_dict[q.options[0].ques_name]
+            #把选项合并到上一个，直接退出
+            q2.options += q.options
+            return
+            
         #把问题添加到dict和question中
         self.all_ques_q.append(q)
         self.ques_v_dict[q.question.V_name] = q
@@ -765,7 +813,7 @@ class Project(object):
             if s.type == Sentense.SENTENSE_BLACK:
                 continue
             if not s.type in expects:
-                print(u"解析失败, 获取%d, 期望是:%s" % (s.type,str(expects)))
+                print(u"解析失败, 获取%d, 期望是:%s" % (s.type,str(expects)), s.string)
                 raise None
             
             if s.type == Sentense.SENTENSE_QUESTION :
@@ -780,17 +828,14 @@ class Project(object):
                 #检查问题类型
                 q.question = s
                 #下一行可能是新的问题，也可能是条件,可可能是选项
-                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_CONDITION, Sentense.SENTENSE_OPTION)
+                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_CONDITION, Sentense.SENTENSE_OPTION, Sentense.SENTENSE_OPTION_CONTINUE)
             elif s.type == Sentense.SENTENSE_CONDITION:
                 q.condition = s
                 #条件行下面必须有选项???
-                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_OPTION)
-            elif s.type == Sentense.SENTENSE_OPTION:
-                expects = (Sentense.SENTENSE_OPTION, Sentense.SENTENSE_QUESTION)
+                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_OPTION, Sentense.SENTENSE_OPTION_CONTINUE)
+            elif s.type in (Sentense.SENTENSE_OPTION, Sentense.SENTENSE_OPTION_CONTINUE):
+                expects = (Sentense.SENTENSE_OPTION, Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_QUESTION)
                 q.options.append(s)
-            elif s.type == Sentense.SENTENSE_BLACK:
-                #忽略的行??
-                expects = (Sentense.SENTENSE_QUESTION, Sentense.SENTENSE_CONDITION, Sentense.SENTENSE_OPTION)
     
             s.ques = q
             q.sentenses.append(s)
