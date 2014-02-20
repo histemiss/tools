@@ -557,7 +557,7 @@ class MainFrame(wx.Frame):
         self.checkbox_top2 = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"Top2"))
         self.checkbox_mean = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"Mean"))
         self.checkbox_loop = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"循环"))
-        self.checkbox_gene = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"其他"))
+        self.checkbox_gene = wx.CheckBox(self.pane_up, wx.ID_ANY, (u"普通"))
 
         #批量修改问题
         self.button_filt = wx.Button(self.pane_up, wx.ID_ANY, (u"修改过滤条件"))
@@ -662,7 +662,7 @@ class MainFrame(wx.Frame):
         sizer_left_down_label.Add(label_base, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
         label_filter = wx.StaticText(self.pane_up, wx.ID_ANY, (u"过滤条件"))
         sizer_left_down_label.Add(label_filter, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
-        label_spec = wx.StaticText(self.pane_up, wx.ID_ANY, (u"隐藏问题"))
+        label_spec = wx.StaticText(self.pane_up, wx.ID_ANY, (u"问题类型"))
         sizer_left_down_label.Add(label_spec, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
         sizer_left_down.Add(sizer_left_down_label, 1, wx.EXPAND | wx.ALIGN_RIGHT | wx.ADJUST_MINSIZE, 0)
         sizer_left_down_value.Add(self.text_ctrl_var, 1, wx.LEFT | wx.RIGHT | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 3)
@@ -727,8 +727,10 @@ class MainFrame(wx.Frame):
             event.Veto()
 
     def OnSearch(self, event):
-        if len(self.gt.checkboxes) == 0:
+        #如果没有打开，直接返回
+        if not self.proj or len(self.proj.all_ques_prg) == 0:
             return 
+
         #查询问题
         var = self.text_ctrl_var.GetValue()
         trunk = self.text_ctrl_trunk.GetValue()
@@ -746,26 +748,26 @@ class MainFrame(wx.Frame):
         loop = self.checkbox_loop.GetValue()
         gene = self.checkbox_gene.GetValue()
         if grid and top2 and mean and gene and loop:
-            wx.MessageBox(u'不能把所有类型都隐藏', style=wx.OK)
+            wx.MessageBox(u'至少选中一种题目类型', style=wx.OK)
             return
 
         qps = []
         for qp in self.proj.all_ques_prg:
             #先过滤checkbox
             if qp.is_grid():
-                if grid:
+                if not grid:
                     continue
             elif qp.is_top2():
-                if top2:
+                if not top2:
                     continue
             elif qp.is_mean():
-                if mean :
+                if not mean :
                     continue
             elif qp.is_loop():
-                if loop :
+                if not loop :
                     continue
             else:
-                if gene:
+                if not gene:
                     continue
 
             #过滤var
@@ -873,6 +875,7 @@ class MainFrame(wx.Frame):
                 qps.append(self.gt.all_ques[i])
 
         self.proj.save_prg(qps, outp_dir)
+        wx.MessageBox(u'数据保存到' + self.proj.outp_dir, style=wx.OK)
 
     def OnBase(self, event):
         if not self.proj:
