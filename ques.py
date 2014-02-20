@@ -41,7 +41,7 @@ class Token(object) :
         TOKEN_COL: '[\d]+L[\d]+(\.[\d]+)?',
         TOKEN_FI:'FI',
         TOKEN_SPECIAL: '\*((INTNR)|(INTTIME)|(SCRCNT)|(INTERNR)|(STIME))',
-        TOKEN_QUESTION: '\*[a-zA-Z][a-zA-Z0-9_-]*', 
+        TOKEN_QUESTION: '\*[a-zA-Z0-9_-]*', 
         TOKEN_NUMBER: '\d+',
     }
 
