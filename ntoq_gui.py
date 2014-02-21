@@ -93,23 +93,21 @@ class QuesGrid(wx.grid.PyGridTableBase):
         #记录所有的checkbox
         self.checkboxes = []
 
-    def ResetQues(self, qs = [], delta = 0):
+    def ResetQues(self, qs = []):
         #打开VAR文件后,根据解析结果更新grid, 或者删除问题后，去掉对应的问题内容
-        old_rows = len(self.all_ques)
-        if delta != 0:
-            old_rows = delta + len(self.all_ques)
-        del self.all_ques
+        self.GetView().BeginBatch()
 
-        self.all_ques = qs
+        #删除所有的row
+        msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, 0, len(self.all_ques))
+        self.GetView().ProcessTableMessage(msg)
+        
+        #重新构造本地的数组, 不会直接使用参数数组
+        self.all_ques = []
+        self.all_ques += qs
 
         #checkbox
         self.checkboxes = [ False ] * len(qs)
 
-        self.GetView().BeginBatch()
-        #删除所有的row
-        msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, 0, old_rows)
-        self.GetView().ProcessTableMessage(msg)
-        
         #获取新的数据
         msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, len(qs))
         self.GetView().ProcessTableMessage(msg)
@@ -828,7 +826,8 @@ class MainFrame(wx.Frame):
                 qps.append(self.gt.all_ques[i])
 
         self.proj.del_questions(qps)
-        self.gt.ResetQues(self.proj.all_ques_prg, len(qps))
+        #删除问题后，查询条件清空
+        self.OnReset(None)
 
 
     def OnOpen(self, event):

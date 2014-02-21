@@ -67,9 +67,6 @@ class Question_P(object):
         #直接重新构造头部
         self.init_head()
 
-    #保存所有结果
-    all_ques = []
-
     def __init__(self, q, t):
         #q是Question, t是类型
         self.q = q
