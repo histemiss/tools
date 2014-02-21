@@ -93,9 +93,13 @@ class QuesGrid(wx.grid.PyGridTableBase):
         #记录所有的checkbox
         self.checkboxes = []
 
-    def ResetQues(self, qs = []):
-        #打开VAR文件后,根据解析结果更新grid
-        old_qs = self.all_ques
+    def ResetQues(self, qs = [], delta = 0):
+        #打开VAR文件后,根据解析结果更新grid, 或者删除问题后，去掉对应的问题内容
+        old_rows = len(self.all_ques)
+        if delta != 0:
+            old_rows = delta + len(self.all_ques)
+        del self.all_ques
+
         self.all_ques = qs
 
         #checkbox
@@ -103,23 +107,21 @@ class QuesGrid(wx.grid.PyGridTableBase):
 
         self.GetView().BeginBatch()
         #删除所有的row
-        msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, 0, len(old_qs))
+        msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, 0, old_rows)
         self.GetView().ProcessTableMessage(msg)
         
         #获取新的数据
         msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, len(qs))
         self.GetView().ProcessTableMessage(msg)
-        #msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_)
-        #self.GetView().ProcessTableMessage(msg)
         self.GetView().EndBatch()
+        #msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_REQUEST_VIEW_GET_VALUES)
+        #self.GetView().ProcessTableMessage(msg)
         
         #更新scrollbar
         h,w = self.GetView().GetSize()
         self.GetView().SetSize((h+1, w+1))
         self.GetView().SetSize((h, w))
         self.GetView().ForceRefresh()
-
-        del old_qs
 
     def CanHaveAttributes(self):
         return True
@@ -826,7 +828,7 @@ class MainFrame(wx.Frame):
                 qps.append(self.gt.all_ques[i])
 
         self.proj.del_questions(qps)
-        self.gt.ResetQues(self.proj.all_ques_prg)
+        self.gt.ResetQues(self.proj.all_ques_prg, len(qps))
 
 
     def OnOpen(self, event):
