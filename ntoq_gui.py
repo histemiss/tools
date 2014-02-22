@@ -470,10 +470,11 @@ class TextDialog(wx.Dialog):
             #新的pub文件名是第一个问题的P_name
             new_fn = self.qps[0].q.question.P_name + '.pub'
             pub_lines= self.text_ctrl.GetValue().split('\n')
-            for q in self.qps:
-                q.pub_fn = new_fn
-                q.pub_lines = pub_lines
-
+            for qp in self.qps:
+                qp.pub_fn = new_fn
+                qp.pub_lines = pub_lines
+                qp.update_pub()
+                
         self.EndModal(wx.OK)
         return 
 
@@ -747,28 +748,26 @@ class MainFrame(wx.Frame):
         mean = self.checkbox_mean.GetValue()
         loop = self.checkbox_loop.GetValue()
         gene = self.checkbox_gene.GetValue()
-        if grid and top2 and mean and gene and loop:
-            wx.MessageBox(u'至少选中一种题目类型', style=wx.OK)
-            return
 
         qps = []
         for qp in self.proj.all_ques_prg:
-            #先过滤checkbox
-            if qp.is_grid():
-                if not grid:
-                    continue
-            elif qp.is_top2():
-                if not top2:
-                    continue
-            elif qp.is_mean():
-                if not mean :
-                    continue
-            elif qp.is_loop():
-                if not loop :
-                    continue
-            else:
-                if not gene:
-                    continue
+            if grid or top2 or mean or gene or loop:
+                #只有使用了一个题目类型,才使用checkbox过滤
+                if qp.is_grid():
+                    if not grid:
+                        continue
+                elif qp.is_top2():
+                    if not top2:
+                        continue
+                elif qp.is_mean():
+                    if not mean :
+                        continue
+                elif qp.is_loop():
+                    if not loop :
+                        continue
+                else:
+                    if not gene:
+                        continue
 
             #过滤var
             if var:

@@ -64,8 +64,15 @@ class Question_P(object):
         self.format()
 
     def update_cond(self):
-        #直接重新构造头部
+        #构造轴名字中的过滤条件
+        self.l = 'l ' + self.q.question.P_name
+        if len(self.cond_prg) > 0:
+            self.l += ';c=' + self.cond_prg
         self.init_head()
+
+    def update_pub(self):
+        #修改pub文件后，更新axe文件
+        pass
 
     def __init__(self, q, t):
         #q是Question, t是类型
@@ -83,6 +90,7 @@ class Question_P(object):
         #题目的描述, 题目表示, 'n23'开头, 使用long_name
         self.desc = ''
         #题目的base, 索引ALIAS.QT文件
+        #base更新后，重新调用format即可
         self.base = ''
 
         #不同的题目使用不同的成员
@@ -110,9 +118,6 @@ class Question_P(object):
 
         #构造题干描述
         self.desc = 'n23' + self.q.question.long_name
-
-        #构造base命令, 统一构造
-        #self.base = 'base1'
 
     def init_single_options(self):
         #初始化单选题的选项
@@ -188,19 +193,29 @@ class Question_P_Multi(Question_P):
         #结尾, 固定值totm
         self.tail = 'totm'
 
+    def create_axe(self):
+        #构造axe文件内容
+        self.outputs = []
+        self.outputs.append(self.l)
+        self.outputs.append(self.desc)
+        self.outputs.append(self.base)
+        self.outputs.append(self.include)
+
+    def update_pub(self):
+        #修改axe文件中的描述
+        self.include = '*include ' + self.pub_fn + ';col(a)=' + str(self.q.question.col.col_start)
+        #重新构造axe文件
+        self.create_axe()
+
     def format(self):
         #构造pub文件
         self.pub_lines = []
         self.pub_lines += self.options
         self.pub_lines.append(self.n03)
         self.pub_lines.append(self.tail)
-        
+
         #构造axe文件的内容
-        self.outputs = []
-        self.outputs.append(self.l)
-        self.outputs.append(self.desc)
-        self.outputs.append(self.base)
-        self.outputs.append(self.include)
+        self.create_axe()
 
 class Question_P_Number(Question_P):
     def __init__(self, q):
@@ -251,7 +266,6 @@ class Question_P_Loop(Question_P):
             #可能覆盖没条件的pub文件
             self.pub_fn = self.q.question.Q_name + '_c.pub'
         self.desc = 'n23&y'
-        #self.base = 'base1'
 
     def init_include(self):
         #定义include命令
@@ -262,9 +276,16 @@ class Question_P_Loop(Question_P):
         self.include += ';x=' + self.q.question.P_name
         self.include += ';y=' + self.q.question.long_name
 
+    def create_axe(self):
+        #构造axe文件内容，只有inlucde
+        self.outputs = []
+        self.outputs.append(self.include)
+
     def update_cond(self):
-        #更新pub文件中的描述, 在format时会重新生成pub文件
-        self.init_loop_head()
+        #更新pub文件中的描述中的过滤条件
+        self.l = 'l &x'
+        if len(self.cond_prg) > 0:
+            self.l += ';c=&b'
 
         #对于循环的问题, 更新include
         self.init_include()
@@ -273,6 +294,12 @@ class Question_P_Loop(Question_P):
         self.grid.refresh_cond()
         self.top2.refresh_cond()
         self.mean.refresh_cond()
+
+    def update_pub(self):
+        #更新include内容
+        self.init_include()
+        #重新构造axe中的内容
+        self.create_axe()
 
 class Question_P_Loop_Single(Question_P_Loop):
     def __init__(self, q):
@@ -313,8 +340,7 @@ class Question_P_Loop_Single(Question_P_Loop):
         self.pub_lines.append(self.tail)
 
         #axe文件内容
-        self.outputs = []
-        self.outputs.append(self.include)
+        self.create_axe()
 
 class Question_P_Loop_Multi(Question_P_Loop):
     def __init__(self, q):
@@ -348,8 +374,7 @@ class Question_P_Loop_Multi(Question_P_Loop):
         self.pub_lines.append(self.tail)
 
         #axe轴文件
-        self.outputs = []
-        self.outputs.append(self.include)
+        self.create_axe()
 
 class Question_P_Loop_Number(Question_P_Loop):
     def __init__(self, q):
@@ -385,9 +410,8 @@ class Question_P_Loop_Number(Question_P_Loop):
         self.pub_lines.append(self.n03)
         self.pub_lines.append(self.tail)
 
-        #axe轴文件, include命令
-        self.outputs = []
-        self.outputs.append(self.include)
+        #axe轴文件
+        self.create_axe()
 
 class Question_P_Grid(Question_P):
     #所有的grid的类的父类
@@ -419,7 +443,6 @@ class Question_P_Grid(Question_P):
 
         self.side = 'side'
         self.desc = 'n23' + self.q.question.Q_name + ' - GRID'
-        #self.base = 'base1'
 
     def update_cond(self):
         #更新grid的描述和子问题的判断条件
@@ -489,7 +512,7 @@ class Question_P_Grid_Multi(Question_P_Grid):
         super(Question_P_Grid_Multi, self).__init__(q, Question_P.QUESTION_OUTPUT_GRID_MULTI)
         
         #pub文件, 不带头部的
-        self.pub_fn = q.question.Q_name + '_nohead.pub'
+        self.pub_fn = q.question.Q_name + '_nh.pub'
         super(Question_P_Grid_Multi, self).init_multi_options()
         self.n03 = 'n03;nosort'
         self.tail = 'totm'
@@ -499,6 +522,15 @@ class Question_P_Grid_Multi(Question_P_Grid):
         #include命令
         self.include = '*include ' + self.pub_fn
 
+    def create_axe(self):
+        self.outputs = []
+        self.outputs.append(self.l)
+        self.outputs += self.cols
+        self.outputs.append(self.side)
+        self.outputs.append(self.desc)
+        self.outputs.append(self.base)
+        self.outputs.append(self.include)
+
     def format(self):
         #pub文件
         self.pub_lines = []
@@ -507,13 +539,13 @@ class Question_P_Grid_Multi(Question_P_Grid):
         self.pub_lines.append(self.tail)
 
         #axe文件
-        self.outputs = []
-        self.outputs.append(self.l)
-        self.outputs += self.cols
-        self.outputs.append(self.side)
-        self.outputs.append(self.desc)
-        self.outputs.append(self.base)
-        self.outputs.append(self.include)
+        self.create_axe()
+
+    def update_pub(self):
+        #更新include行
+        self.include = '*include ' + self.pub_fn
+        #更新axe文件内容
+        self.create_axe()
 
 class Question_P_Top2(Question_P):
     #top2问题不再区分子类型
@@ -529,13 +561,17 @@ class Question_P_Top2(Question_P):
 
         self.init_top2()
 
+        #描述文件
+        self.desc = 'n23' + self.q.question.Q_name + '.TOP2'
+        #不使用pub文件
+        self.pub_fn = ''
+        
     def init_top2(self):
         self.l = 'l ' + self.q.question.Q_name + 't'
         if len(self.cond_prg) > 0:
             self.l += ';c=' + self.cond_prg
 
-        self.desc = 'n23' + self.q.question.Q_name + '.TOP2'
-        #base
+        #base后面的子问题行
         self.cols = []
         qs = self.q.get_ques_q()
         for i in qs:
@@ -546,9 +582,6 @@ class Question_P_Top2(Question_P):
                 o = '*include top2.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
             self.cols.append(o)
 
-        #不使用pub文件
-        self.pub_fn = ''
-        
     def format(self):
         #所有的top2问题使用一套pub文件
         '''
@@ -584,13 +617,16 @@ class Question_P_Mean(Question_P):
 
         self.init_mean()
 
+        #题目描述和pub文件名不会改变
+        self.desc = 'n23' + self.q.question.Q_name + '.MEAN'
+        self.pub_fn = ''
+
     def init_mean(self):
         self.l = 'l ' + self.q.question.Q_name + 'm'
         if len(self.cond_prg) > 0:
             self.l += ';c=' + self.cond_prg
 
-        self.desc = 'n23' + self.q.question.Q_name + '.MEAN'
-        #base
+        #base后面的子问题选项行
         self.cols = []
         qs = self.q.get_ques_q()
         for i in qs:
@@ -601,7 +637,6 @@ class Question_P_Mean(Question_P):
                 o = '*include mean.pub;col(a)=' + str(col) + ';y=' + i.question.long_name
             self.cols.append(o)
 
-        self.pub_fn = ''
 
     def update_cond(self):
         self.init_mean()
