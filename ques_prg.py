@@ -512,7 +512,7 @@ class Question_P_Grid_Multi(Question_P_Grid):
         super(Question_P_Grid_Multi, self).__init__(q, Question_P.QUESTION_OUTPUT_GRID_MULTI)
         
         #pub文件, 不带头部的
-        self.pub_fn = q.question.Q_name + '_nh.pub'
+        self.pub_fn = q.question.Q_name + 'n.pub'
         super(Question_P_Grid_Multi, self).init_multi_options()
         self.n03 = 'n03;nosort'
         self.tail = 'totm'

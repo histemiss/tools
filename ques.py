@@ -678,9 +678,10 @@ class Project(object):
             if len(qs) == 1:
                 continue
 
+            loop_ok = True
+            '''不再检查循环内序号
             #如果Q_name一样,就是循环,第一个是开头,最后一个是结尾
             #name的检查序号
-            loop_ok = True
             for c in range(1, len(qs)):
                 p = qs[c-1]
                 c = qs[c]
@@ -701,7 +702,7 @@ class Project(object):
                 if p_no + 1 != c_no:
                     loop_ok = False
                     break
-                   
+            '''
             if loop_ok:
                 qs[0].loop_state = 1
                 for c in qs[1:-1]:
@@ -1055,7 +1056,9 @@ class Project(object):
     def alias_qt_file(self):
         lines = []
         for i in self.base_dict:
-            o = ("%s %s") % (i, self.base_dict[i])
+            v = self.base_dict[i]
+            v.replace('\\', u'、')
+            o = ("%s %s") % (i, v)
             lines.append(o)
         
         self.write_lines('ALIAS.QT', lines)
