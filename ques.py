@@ -283,6 +283,88 @@ class Sentense_cond(Sentense):
 
         return {'s':output, 'p':p}
 
+    def cond_dig_ques_expr(self, c):
+        #去掉所有的空格
+        r = re.compile('\s*')
+        c = r.sub('', c)
+
+        #先查找判断表达式
+        s_sp = ('<>', '>=', '<=','>','<','=')
+        sp = ''
+        sp_look = False
+        for sp in s_sp:
+            if c.find(sp) != -1:
+                sp_look = True
+                break
+        if not sp_look :
+            print(u"没有找到比较运算符", c)
+            raise None
+            
+        #截取2端的表达式
+        (left, right) = c.split(sp)
+
+        #最终右边是数字还是问题
+        right_dig = False
+
+        #如果左边是数字，交换2端
+        d_re = re.compile('[0-9]+')
+        if d_re.match(left):
+            t = left
+            left = right
+            right = t
+            right_dig = True
+            #转换逻辑表达式
+            sp_op = {'<>':'<>', '=':'=', '<=':'>=', '>=':'<=', '<':'>', '>':'<'}
+            sp = sp_op[sp]
+        elif d_re.match(right):
+            right_dig = True
+
+        #查找左边对应的题目, 题目必须是数值或单选题
+        q = self.proj.ques_v_dict[left]
+        if not q or q.question.type_ques == Sentense_ques.QUESTION_MULTI:
+            print(u"判断条件的题号不正确", c)
+            raise None
+        col_start = q.question.col.col_start
+        col_width = q.question.col.col_width
+
+        #优化情况, 如果col_width==1, 而且右边是数值, 而且判断符号是 <>, =
+        if col_width == 1 and right_dig and sp in ('<>', '=') :
+            #c1'1', 或者  c1n'1'
+            s_op = 'n' if sp == '<>' else ''
+            output = 'c' + str(col_start) + s_op + '\'' + val + '\''
+            return {'s':output, 'p': 1}
+
+        #格式化题目
+        left_ques = ''
+        if col_width == 1:
+            left_ques = 'c' + str(col_start)
+        else:
+            left_ques = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ')'
+
+        #逻辑表达式
+        sp_name = {'<>':'ne', '>=':'ne', '<=':'le', '>':'gt', '<':'lt', '=':'eq'}
+
+        #如果右边是数字
+        if right_dig :
+            output = left_ques + '.' + sp_name[sp] + '.' + right
+            return {'s':output, 'p':1}
+
+        #两边都是题号
+        #查找右边对应的题目, 题目必须是数值或单选题
+        q = self.proj.ques_v_dict[right]
+        if not q or q.question.type_ques == Sentense_ques.QUESTION_MULTI:
+            print(u"判断条件的题号不正确", c)
+            raise None
+        col_start = q.question.col.col_start
+        col_width = q.question.col.col_width
+        #格式化题目
+        right_ques = ''
+        if col_width == 1:
+            right_ques = 'c' + str(col_start)
+        else:
+            right_ques = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ')'
+        output = left_ques + '.' + sp_name[sp] + '.' + right_ques
+        return {'s':output, 'p':1}
         
     def cond_expr(self, c):
         #使用题号作为过滤条件
@@ -291,8 +373,11 @@ class Sentense_cond(Sentense):
         #使用数据位置作为过滤条件
         r_col = re.compile(r'\s*[1-9][0-9]*L[0-9]+\s*((=)|(<>)|(<)|(>)|(>=)|(<=))\s*[0-9]+\s*')
 
-        #匹配判断表达式
+        #匹配只使用数字的判断表达式
         r_num = re.compile(r'\s*[0-9]+\s*((<)|(>)|(=)|(<>)|(>=)|(<=))\s*[0-9]+\s*')
+
+        #匹配使用数字或题号的判断表达式. 如果都是数字，匹配上面的情况
+        r_num_ques = re.compile(r'\s*(([0-9]+)|([a-zA-Z][a-zA-Z0-9_-]*))\s*((<)|(>)|(=)|(<>)|(>=)|(<=))\s*(([0-9]+)|([a-zA-Z][a-zA-Z0-9_-]*))\s*')
 
         #匹配单个数字
         r_digital = re.compile(r'\s*[0-9]+\s*')
@@ -304,6 +389,8 @@ class Sentense_cond(Sentense):
         elif r_num.match(c) or r_digital.match(c):
             #这里优先级为0, 特殊情况
             return {'s':u'空', 'p':0}
+        elif r_num_ques.match(c):
+            return self.cond_dig_ques_expr(c)
         else:
             print(u'无法解析判断表达式')
             raise None
