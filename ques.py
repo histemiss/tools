@@ -342,7 +342,7 @@ class Sentense_cond(Sentense):
             left_ques = 'c(' + str(col_start) + ',' + str(col_start + col_width -1) + ')'
 
         #逻辑表达式
-        sp_name = {'<>':'ne', '>=':'ne', '<=':'le', '>':'gt', '<':'lt', '=':'eq'}
+        sp_name = {'<>':'ne', '>=':'ge', '<=':'le', '>':'gt', '<':'lt', '=':'eq'}
 
         #如果右边是数字
         if right_dig :
@@ -386,11 +386,14 @@ class Sentense_cond(Sentense):
             return self.cond_ques_expr(c)
         elif r_col.match(c):
             return self.cond_col_expr(c)
-        elif r_num.match(c) or r_digital.match(c):
+        elif r_num.match(c):
             #这里优先级为0, 特殊情况
             return {'s':u'空', 'p':0}
         elif r_num_ques.match(c):
             return self.cond_dig_ques_expr(c)
+        elif r_digital.match(c):
+            #这里优先级为0, 特殊情况
+            return {'s':u'空', 'p':0}
         else:
             print(u'无法解析判断表达式')
             raise None
