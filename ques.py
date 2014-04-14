@@ -1068,17 +1068,16 @@ class Project(object):
     
         self.write_lines('1.bat', lines)
     
-    def prn_file(self):
+    def prn_file(self, fz=False):
         lines = []
         lines.append('struct;read=0;reclen=32000')
         lines.append('ed')
         lines.append('')
-        lines.append('/* ADEval')
-        lines.append('')
-        lines.append('/*most often user')
-        lines.append('')
         lines.append('end')
-        lines.append('a;decp=2;dec=0;spechar=->;op=&e;side=40;pagwid=5000;paglen=300;indent=2;flush;nopage;nz;nosort;linesbef=0;linesaft=0;nopc;topc;notype;netsort;nzcol')
+        if fz :
+            lines.append('a;decp=2;dec=0;spechar=->;op=&e;side=40;pagwid=5000;paglen=300;indent=2;flush;nopage;nonz;nosort;linesbef=0;linesaft=0;topc;notype;netsort;nzcol')
+        else:
+            lines.append('a;decp=2;dec=0;spechar=->;op=&e;side=40;pagwid=5000;paglen=300;indent=2;flush;nopage;nz;nosort;linesbef=0;linesaft=0;nopc;topc;notype;netsort;nzcol')
         lines.append('ttl')
         lines.append('ttl')
         lines.append('#include tab.prg')
@@ -1153,13 +1152,13 @@ class Project(object):
         
         self.write_lines('ALIAS.QT', lines)
 
-    def save_prg(self, qps=[], outp_dir = ''):
+    def save_prg(self, qps=[], outp_dir = '', fz=False):
         if len(outp_dir) != 0:
             self.outp_dir = outp_dir
 
         self.axe_tab_file()
         self.bat_file()
-        self.prn_file()
+        self.prn_file(fz)
         self.maxima_qt_file()
         self.alias_qt_file()
         self.datamap()

@@ -543,6 +543,7 @@ class MainFrame(wx.Frame):
         #文件操作
         self.button_open = wx.Button(self.pane_up, wx.ID_ANY, (u"打开"))
         self.button_save = wx.Button(self.pane_up, wx.ID_ANY, (u"保存"))
+        self.button_save_fz = wx.Button(self.pane_up, wx.ID_ANY, (u"保存(分众)"))
         self.button_base_dict = wx.Button(self.pane_up, wx.ID_ANY, (u"修改base字典"))
 
         #查询操作
@@ -583,6 +584,7 @@ class MainFrame(wx.Frame):
         #打开和保存
         self.Bind(wx.EVT_BUTTON, self.OnOpen, self.button_open)
         self.Bind(wx.EVT_BUTTON, self.OnSave, self.button_save)
+        self.Bind(wx.EVT_BUTTON, self.OnSaveFz, self.button_save_fz)
         self.Bind(wx.EVT_BUTTON, self.OnBase, self.button_base_dict)
         #批量修改问题
         self.Bind(wx.EVT_BUTTON, self.OnModFilt, self.button_filt)
@@ -627,11 +629,12 @@ class MainFrame(wx.Frame):
 
         #左边文件操作
         sizer_left_file = wx.BoxSizer(wx.VERTICAL)
-        label_left_file = wx.StaticText(self.pane_up, wx.ID_ANY, (u"文件操作"), style=wx.ALIGN_CENTRE)
-        sizer_left_file.Add(label_left_file, 0, wx.ALL | wx.EXPAND | wx.ADJUST_MINSIZE, 11)
+        #label_left_file = wx.StaticText(self.pane_up, wx.ID_ANY, (u"文件操作"), style=wx.ALIGN_CENTRE)
+        #sizer_left_file.Add(label_left_file, 0, wx.ALL | wx.EXPAND | wx.ADJUST_MINSIZE, 11)
         sizer_left_file_buttons = wx.BoxSizer(wx.VERTICAL)
         sizer_left_file_buttons.Add(self.button_open, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
         sizer_left_file_buttons.Add(self.button_save, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
+        sizer_left_file_buttons.Add(self.button_save_fz, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
         sizer_left_file_buttons.Add(self.button_base_dict, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL | wx.ADJUST_MINSIZE, 5)
         sizer_left_file.Add(sizer_left_file_buttons, 1, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL, 0)
         sizer_up.Add(sizer_left_file, 0, wx.LEFT | wx.TOP | wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL, 20)
@@ -875,6 +878,29 @@ class MainFrame(wx.Frame):
                 qps.append(self.gt.all_ques[i])
 
         self.proj.save_prg(qps, outp_dir)
+        wx.MessageBox(u'数据保存到' + self.proj.outp_dir, style=wx.OK)
+
+    def OnSaveFz(self, event):
+        if self.proj == None:
+            wx.MessageBox(u'还没有打开VAR文件', style=wx.OK)
+            return 
+
+        outp_dir = self.proj.outp_dir
+        if len(outp_dir) == 0:
+            prg_dir = wx.DirSelector(u"选择保存位置...")
+            if prg_dir.strip():
+                outp_dir = prg_dir.strip()
+            else:
+                return
+
+        #收集选中的问题
+        #构造qps
+        qps = []
+        for i in range(len(self.gt.checkboxes)):
+            if self.gt.checkboxes[i] :
+                qps.append(self.gt.all_ques[i])
+
+        self.proj.save_prg(qps, outp_dir=outp_dir, fz=True)
         wx.MessageBox(u'数据保存到' + self.proj.outp_dir, style=wx.OK)
 
     def OnBase(self, event):
